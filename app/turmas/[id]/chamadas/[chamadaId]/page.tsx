@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
-import { Trash2 } from "lucide-react";
+import { Trash2, FileSpreadsheet, Upload } from "lucide-react";
 
 type Row = { nome: string; email?: string; presente?: boolean };
 
@@ -51,7 +51,7 @@ export default function EditChamadaPage({ params }: { params: { id: string, cham
       const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
       const parsed: Row[] = rows.map((r) => ({
         nome: String(r.Nome || r.nome || r.aluno || "").trim(),
-        email: String(r.Email || r.email || "").trim(), // mantido no estado (não exibido)
+        email: String(r.Email || r.email || "").trim(),
         presente: true
       })).filter((r) => r.nome.length > 0);
       setAlunos((prev) => {
@@ -70,9 +70,7 @@ export default function EditChamadaPage({ params }: { params: { id: string, cham
     try {
       const payload = { date, conteudo, alunos: alunos.filter(a => a.nome.trim().length > 0) };
       const res = await fetch(`/api/turmas/${turmaId}/chamadas/${chamadaId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "Erro ao salvar alteração");
@@ -95,7 +93,7 @@ export default function EditChamadaPage({ params }: { params: { id: string, cham
 
       <main className="flex-1">
         <div className="mx-auto max-w-4xl px-6 py-8">
-          <form onSubmit={onSave} className="card space-y-5">
+          <form onSubmit={onSave} className="card space-y-6">
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm mb-1">Data</label>
@@ -107,7 +105,7 @@ export default function EditChamadaPage({ params }: { params: { id: string, cham
               </div>
             </div>
 
-            {/* Lista SLIM (sem e-mail) */}
+            {/* Lista SLIM */}
             <div className="rounded-3xl border border-gray-100 bg-white">
               {alunos.length === 0 && (
                 <div className="p-4 text-gray-500">Nenhum aluno nesta chamada. Use os botões abaixo.</div>
@@ -119,8 +117,7 @@ export default function EditChamadaPage({ params }: { params: { id: string, cham
                       type="button"
                       onClick={()=>removeAluno(i)}
                       className="p-1 rounded hover:bg-gray-100"
-                      aria-label={`Remover ${a.nome || "aluno"}`}
-                      title="Remover aluno"
+                      aria-label={`Remover ${a.nome || "aluno"}`} title="Remover aluno"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -133,25 +130,36 @@ export default function EditChamadaPage({ params }: { params: { id: string, cham
                     />
 
                     <input
-                      type="checkbox"
-                      className="h-4 w-4"
+                      type="checkbox" className="h-4 w-4"
                       checked={a.presente ?? true}
                       onChange={(e)=>updateAluno(i, { presente: e.target.checked })}
-                      aria-label={`Presença de ${a.nome || "aluno"}`}
-                      title="Presença"
+                      aria-label={`Presença de ${a.nome || "aluno"}`} title="Presença"
                     />
                   </li>
                 ))}
               </ul>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <button type="button" className="btn-primary" onClick={addAluno}>Adicionar aluno</button>
-              <button type="button" className="btn-primary" onClick={onImportClick}>Importar do Excel</button>
-              <a href="/api/samples/alunos-exemplo" className="underline text-sm">Baixar modelo Excel</a>
-              <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileSelected} />
-              <div className="ms-auto"></div>
-              <button className="btn-primary" disabled={saving}>{saving ? "Salvando..." : "Salvar alterações"}</button>
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" className="btn-primary" onClick={addAluno}>Adicionar aluno</button>
+
+                {/* Grupo Excel */}
+                <div className="flex items-center gap-2">
+                  <button type="button" className="btn-primary flex items-center gap-1.5" onClick={onImportClick}>
+                    <Upload size={16}/> Importar do Excel
+                  </button>
+                  <a href="/api/samples/alunos-exemplo" className="inline-flex items-center gap-1.5 underline text-sm">
+                    <FileSpreadsheet size={16}/> Modelo Excel
+                  </a>
+                </div>
+
+                <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileSelected} />
+              </div>
+
+              <button className="btn-primary w-full py-3 text-base" disabled={saving}>
+                {saving ? "Salvando..." : "Salvar Chamada"}
+              </button>
             </div>
 
             {err && <p className="text-sm text-red-600">{err}</p>}

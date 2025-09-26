@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
-import { Trash2 } from "lucide-react";
+import { Trash2, FileSpreadsheet, Upload } from "lucide-react";
 
 type NovoAluno = { nome: string; email?: string; presente?: boolean };
 
@@ -20,7 +20,6 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
     (async () => {
       const res = await fetch(`/api/turmas/${turmaId}/alunos`, { cache: "no-store" });
       const data = res.ok ? await res.json() : { alunos: [] };
-      // Mantemos email no estado (não exibido), útil para futuro
       setAlunos((data.alunos || []).map((a: any) => ({ nome: a.nome, email: a.email ?? "", presente: true })));
     })();
   }, [turmaId]);
@@ -42,15 +41,12 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
       const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
       const parsed: NovoAluno[] = rows.map((r) => ({
         nome: String(r.Nome || r.nome || r.aluno || "").trim(),
-        email: String(r.Email || r.email || "").trim(), // mantido no estado (não exibido)
+        email: String(r.Email || r.email || "").trim(),
         presente: true
       })).filter((r) => r.nome.length > 0);
       setAlunos((prev) => {
         const map = new Map<string, NovoAluno>();
-        [...prev, ...parsed].forEach((a) => {
-          const key = a.nome.toLowerCase();
-          map.set(key, { ...map.get(key), ...a });
-        });
+        [...prev, ...parsed].forEach((a) => map.set(a.nome.toLowerCase(), { ...map.get(a.nome.toLowerCase()), ...a }));
         return Array.from(map.values());
       });
     };
@@ -62,15 +58,9 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
     e.preventDefault();
     setErr(""); setLoading(true);
     try {
-      const payload = {
-        date,
-        conteudo,
-        alunos: alunos.filter(a => a.nome.trim().length > 0) // email segue junto no objeto
-      };
+      const payload = { date, conteudo, alunos: alunos.filter(a => a.nome.trim().length > 0) };
       const res = await fetch(`/api/turmas/${turmaId}/chamadas`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "Erro ao salvar chamada");
@@ -93,7 +83,7 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
 
       <main className="flex-1">
         <div className="mx-auto max-w-4xl px-6 py-8">
-          <form onSubmit={onSubmit} className="card space-y-5">
+          <form onSubmit={onSubmit} className="card space-y-6">
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm mb-1">Data</label>
@@ -105,7 +95,7 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
               </div>
             </div>
 
-            {/* Lista SLIM (sem campo de e-mail) */}
+            {/* Lista SLIM (sem e-mail) */}
             <div className="rounded-3xl border border-gray-100 bg-white">
               {alunos.length === 0 && (
                 <div className="p-4 text-gray-500">Nenhum aluno. Use os botões abaixo para adicionar ou importar.</div>
@@ -113,18 +103,17 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
               <ul className="divide-y">
                 {alunos.map((a, i) => (
                   <li key={i} className="px-4 py-2 flex items-center gap-3">
-                    {/* Lixeira ANTES do nome */}
+                    {/* Lixeira antes do nome */}
                     <button
                       type="button"
                       onClick={()=>removeAluno(i)}
                       className="p-1 rounded hover:bg-gray-100"
-                      aria-label={`Remover ${a.nome || "aluno"}`}
-                      title="Remover aluno"
+                      aria-label={`Remover ${a.nome || "aluno"}`} title="Remover aluno"
                     >
                       <Trash2 size={16} />
                     </button>
 
-                    {/* Nome: sem caixa, apenas linha inferior */}
+                    {/* Nome: linha inferior */}
                     <input
                       className="flex-1 bg-transparent outline-none border-b border-gray-200 focus:border-blue-500 py-1 text-sm"
                       placeholder="Nome do aluno"
@@ -134,26 +123,37 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
 
                     {/* Presença: só o marcador */}
                     <input
-                      type="checkbox"
-                      className="h-4 w-4"
-                      checked={a.presente ?? true}
+                      type="checkbox" className="h-4 w-4" checked={a.presente ?? true}
                       onChange={(e)=>updateAluno(i, { presente: e.target.checked })}
-                      aria-label={`Presença de ${a.nome || "aluno"}`}
-                      title="Presença"
+                      aria-label={`Presença de ${a.nome || "aluno"}`} title="Presença"
                     />
                   </li>
                 ))}
               </ul>
             </div>
 
-            {/* Botões abaixo da lista */}
-            <div className="flex flex-wrap items-center gap-2">
-              <button type="button" className="btn-primary" onClick={addAluno}>Adicionar aluno</button>
-              <button type="button" className="btn-primary" onClick={onImportClick}>Importar do Excel</button>
-              <a href="/api/samples/alunos-exemplo" className="underline text-sm">Baixar modelo Excel</a>
-              <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileSelected} />
-              <div className="ms-auto"></div>
-              <button className="btn-primary" disabled={loading}>{loading ? "Salvando..." : "Salvar Chamada"}</button>
+            {/* Ações: grupo de Excel + adicionar, e botão full-width */}
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" className="btn-primary" onClick={addAluno}>Adicionar aluno</button>
+
+                {/* Grupo Excel */}
+                <div className="flex items-center gap-2">
+                  <button type="button" className="btn-primary flex items-center gap-1.5" onClick={onImportClick}>
+                    <Upload size={16}/> Importar do Excel
+                  </button>
+                  <a href="/api/samples/alunos-exemplo" className="inline-flex items-center gap-1.5 underline text-sm">
+                    <FileSpreadsheet size={16}/> Modelo Excel
+                  </a>
+                </div>
+
+                <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileSelected} />
+              </div>
+
+              {/* Salvar: full width */}
+              <button className="btn-primary w-full py-3 text-base" disabled={loading}>
+                {loading ? "Salvando..." : "Salvar Chamada"}
+              </button>
             </div>
 
             {err && <p className="text-sm text-red-600">{err}</p>}
