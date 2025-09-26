@@ -3,9 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider          = "postgresql"
-  url               = env("DATABASE_URL") // use o HOST *-pooler.* (PgBouncer) para a app
-  directUrl         = env("DIRECT_URL")   // use o HOST sem *-pooler.* para migrações
+  provider   = "postgresql"
+  url        = env("DATABASE_URL") // host -pooler para app
+  directUrl  = env("DIRECT_URL")   // host direto para migrações
 }
 
 model User {
@@ -15,4 +15,10 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model Turma {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
 }
