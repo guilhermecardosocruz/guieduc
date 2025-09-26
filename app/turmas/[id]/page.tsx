@@ -1,25 +1,15 @@
 import Link from "next/link";
 
 async function getTurma(id: string) {
-  const abs = process.env.NEXT_PUBLIC_APP_URL
-    ? await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/turmas/${id}`, { cache: "no-store" }).catch(() => null)
-    : null;
-  if (abs?.ok) return abs.json();
-
-  const rel = await fetch(`/api/turmas/${id}`, { cache: "no-store" }).catch(() => null);
-  if (!rel?.ok) return null;
-  return rel.json();
+  const res = await fetch(`/api/turmas/${id}`, { cache: "no-store" });
+  if (!res.ok) return null;
+  return res.json();
 }
 
 async function getChamadas(id: string) {
-  const abs = process.env.NEXT_PUBLIC_APP_URL
-    ? await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/turmas/${id}/chamadas`, { cache: "no-store" }).catch(() => null)
-    : null;
-  if (abs?.ok) return abs.json();
-
-  const rel = await fetch(`/api/turmas/${id}/chamadas`, { cache: "no-store" }).catch(() => null);
-  if (!rel?.ok) return { chamadas: [] };
-  return rel.json();
+  const res = await fetch(`/api/turmas/${id}/chamadas`, { cache: "no-store" });
+  if (!res.ok) return { chamadas: [] };
+  return res.json();
 }
 
 export default async function TurmaPage({ params }: { params: { id: string } }) {

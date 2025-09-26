@@ -21,9 +21,11 @@ export async function POST(req: Request) {
     if (trimmed.length < 2) {
       return NextResponse.json({ ok: false, error: "Nome inválido" }, { status: 400 });
     }
+
+    const id = crypto.randomUUID();
     const rows = await prisma.$queryRaw<Array<{ id: string; name: string; createdAt: Date }>>(
       Prisma.sql`INSERT INTO "Turma" (id, name, "createdAt")
-                 VALUES (gen_random_uuid()::text, ${trimmed}, now())
+                 VALUES (${id}, ${trimmed}, now())
                  RETURNING id, name, "createdAt"`
     );
     return NextResponse.json({ ok: true, turma: rows[0] }, { status: 201 });
