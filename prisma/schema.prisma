@@ -23,6 +23,7 @@ model Turma {
   createdAt DateTime  @default(now())
   Aluno     Aluno[]
   Chamada   Chamada[]
+  Aula      Aula[]
 }
 
 model Aluno {
@@ -61,4 +62,17 @@ model ChamadaItem {
   Aluno   Aluno   @relation(fields: [alunoId], references: [id], onDelete: Cascade)
 
   @@unique([chamadaId, alunoId])
+}
+
+model Aula {
+  id        String   @id @default(cuid())
+  turmaId   String
+  numero    Int
+  titulo    String
+  createdAt DateTime @default(now())
+
+  Turma Turma @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+
+  @@unique([turmaId, numero])
+  @@index([turmaId, numero])
 }
