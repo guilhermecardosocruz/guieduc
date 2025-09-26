@@ -1,30 +1,43 @@
 import Link from "next/link";
 
 async function getTurma(id: string) {
-  // Tenta absoluto (produção com NEXT_PUBLIC_APP_URL) e relativo
   const abs = process.env.NEXT_PUBLIC_APP_URL
     ? await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/turmas/${id}`, { cache: "no-store" }).catch(() => null)
     : null;
-
-  if (abs && abs.ok) return abs.json();
+  if (abs?.ok) return abs.json();
 
   const rel = await fetch(`/api/turmas/${id}`, { cache: "no-store" }).catch(() => null);
-  if (!rel || !rel.ok) return null;
+  if (!rel?.ok) return null;
   return rel.json();
 }
 
-// Tipagem compatível com Next 15 typed routes: params é uma Promise
-export default async function TurmaPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+async function getChamadas(id: string) {
+  const abs = process.env.NEXT_PUBLIC_APP_URL
+    ? await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/turmas/${id}/chamadas`, { cache: "no-store" }).catch(() => null)
+    : null;
+  if (abs?.ok) return abs.json();
+
+  const rel = await fetch(`/api/turmas/${id}/chamadas`, { cache: "no-store" }).catch(() => null);
+  if (!rel?.ok) return { chamadas: [] };
+  return rel.json();
+}
+
+export default async function TurmaPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const data = await getTurma(id);
   const turma = data?.turma;
+  const chamadasData = await getChamadas(id);
+  const chamadas = chamadasData?.chamadas ?? [];
 
   return (
     <div className="min-h-dvh flex flex-col">
       <header className="w-full border-b border-gray-100 bg-white">
         <div className="mx-auto max-w-4xl px-6 py-4 flex items-center justify-between">
           <h1 className="text-xl font-bold">GUIEDUC</h1>
-          <Link href="/dashboard" className="btn-primary">Voltar</Link>
+          <div className="flex gap-2">
+            <Link href="/dashboard" className="btn-primary">Voltar</Link>
+            <Link href={`/turmas/${id}/chamadas/new`} className="btn-primary">Adicionar Chamada</Link>
+          </div>
         </div>
       </header>
 
@@ -33,7 +46,23 @@ export default async function TurmaPage({ params }: { params: Promise<{ id: stri
           {turma ? (
             <>
               <h2 className="text-3xl font-bold mb-2">{turma.name}</h2>
-              <p className="text-gray-600">Página da turma (em breve: alunos, aulas, chamadas).</p>
+              <p className="text-gray-600 mb-6">Gerencie as chamadas desta turma.</p>
+
+              <h3 className="text-lg font-semibold mb-2">Chamadas recentes</h3>
+              {chamadas.length === 0 ? (
+                <p className="text-gray-500">Nenhuma chamada registrada.</p>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {chamadas.slice(0, 6).map((c: any) => (
+                    <div key={c.id} className="rounded-3xl border border-gray-100 p-4 bg-white">
+                      <div className="text-sm text-gray-500">
+                        Data: {new Date(c.date).toLocaleDateString("pt-BR")}
+                      </div>
+                      {c.notes && <div className="text-sm mt-1">Obs.: {c.notes}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           ) : (
             <p className="text-red-600">Turma não encontrada.</p>

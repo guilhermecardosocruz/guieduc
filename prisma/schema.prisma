@@ -4,8 +4,8 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL") // usar host -pooler na app
-  directUrl = env("DIRECT_URL") // host direto p/ migrações
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -18,7 +18,20 @@ model User {
 }
 
 model Turma {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   name      String
+  createdAt DateTime  @default(now())
+  Chamada   Chamada[]
+}
+
+model Chamada {
+  id        String   @id @default(cuid())
+  turmaId   String
+  date      DateTime @default(now())
+  notes     String? // observações
   createdAt DateTime @default(now())
+
+  Turma Turma @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+
+  @@index([turmaId, date])
 }
