@@ -55,12 +55,17 @@ export default function ChamadasPage({ params }: { params: { id: string } }) {
               ) : (
                 <div className="grid sm:grid-cols-2 gap-3">
                   {chamadas.map((c) => (
-                    <div key={c.id} className="rounded-3xl border border-gray-100 p-4 bg-white">
+                    <Link
+                      key={c.id}
+                      href={`/turmas/${id}/chamadas/${c.id}`}
+                      className="rounded-3xl border border-gray-100 p-4 bg-white hover:shadow transition block"
+                    >
                       <div className="text-sm text-gray-500">
                         Data: {new Date(c.date).toLocaleDateString("pt-BR")}
                       </div>
                       {c.conteudo && <div className="text-sm mt-1">Conteúdo: {c.conteudo}</div>}
-                    </div>
+                      <div className="text-[13px] underline mt-2">Editar</div>
+                    </Link>
                   ))}
                 </div>
               )}
