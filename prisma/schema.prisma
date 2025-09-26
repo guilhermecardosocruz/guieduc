@@ -4,8 +4,8 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL") // host -pooler para app
-  directUrl = env("DIRECT_URL") // host direto para migrações
+  url       = env("DATABASE_URL") // usar host -pooler na app
+  directUrl = env("DIRECT_URL") // host direto p/ migrações
 }
 
 model User {
