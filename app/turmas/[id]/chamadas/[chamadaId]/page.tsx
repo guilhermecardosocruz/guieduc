@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
-import { Trash2, FileSpreadsheet, Upload } from "lucide-react";
+import { Trash2 } from "lucide-react";
 
 type Row = { nome: string; email?: string; presente?: boolean };
 
@@ -70,9 +70,7 @@ export default function EditChamadaPage({ params }: { params: { id: string, cham
     try {
       const payload = { date, conteudo, alunos: alunos.filter(a => a.nome.trim().length > 0) };
       const res = await fetch(`/api/turmas/${turmaId}/chamadas/${chamadaId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "Erro ao salvar alteração");
@@ -140,27 +138,42 @@ export default function EditChamadaPage({ params }: { params: { id: string, cham
               </ul>
             </div>
 
-            {/* Ações — conforme solicitado */}
+            {/* Ações — ordem e largura conforme pedido */}
             <div className="space-y-3">
-              {/* 1) Salvar Chamada — full width */}
               <button className="btn-primary w-full py-3 text-base" disabled={saving}>
                 {saving ? "Salvando..." : "Salvar Chamada"}
               </button>
 
-              {/* 2) Adicionar aluno — full width */}
               <button type="button" className="btn-primary w-full py-3 text-base" onClick={addAluno}>
                 Adicionar aluno
               </button>
 
-              {/* 3) Linha final: Importar + Modelo (lado a lado) */}
-              <div className="flex flex-wrap items-center gap-3">
-                <button type="button" className="btn-primary flex items-center gap-1.5" onClick={onImportClick}>
-                  <Upload size={16}/> Importar do Excel
+              {/* Importar + Modelo — lado a lado, sem quebra */}
+              <div className="flex items-center gap-2 flex-nowrap">
+                <button
+                  type="button"
+                  className="btn-primary flex items-center gap-1.5 whitespace-nowrap"
+                  onClick={onImportClick}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M20 21H4" /></svg>
+                  Importar do Excel
                 </button>
-                <a href="/api/samples/alunos-exemplo" className="inline-flex items-center gap-1.5 underline text-sm">
-                  <FileSpreadsheet size={16}/> Modelo Excel
+
+                <a
+                  href="/api/samples/alunos-exemplo"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 whitespace-nowrap"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4h10l6 6v10a2 2 0 0 1-2 2H4z"/><path d="M14 4v6h6"/></svg>
+                  Modelo Excel
                 </a>
-                <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileSelected} />
+
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={onFileSelected}
+                />
               </div>
             </div>
 
