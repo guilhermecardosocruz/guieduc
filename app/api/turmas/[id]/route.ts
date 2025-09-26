@@ -1,10 +1,12 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 
 function extractId(req: Request) {
   const segments = new URL(req.url).pathname.split("/");
-  // .../api/turmas/{id}
   const idx = segments.findIndex((s) => s === "turmas");
   return idx >= 0 ? segments[idx + 1] : undefined;
 }
@@ -21,7 +23,7 @@ export async function GET(req: Request) {
     if (!turma) return NextResponse.json({ ok: false, error: "Turma não encontrada" }, { status: 404 });
     return NextResponse.json({ ok: true, turma });
   } catch (e) {
-    console.error(e);
+    console.error("GET /api/turmas/[id]", e);
     return NextResponse.json({ ok: false, error: "Erro ao buscar turma" }, { status: 500 });
   }
 }
