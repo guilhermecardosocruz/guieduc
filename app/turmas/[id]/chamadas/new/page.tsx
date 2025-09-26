@@ -16,7 +16,6 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // carrega alunos existentes (opcional)
     (async () => {
       const res = await fetch(`/api/turmas/${turmaId}/alunos`, { cache: "no-store" });
       const data = res.ok ? await res.json() : { alunos: [] };
@@ -45,14 +44,13 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
       const data = new Uint8Array(evt.target?.result as ArrayBuffer);
       const workbook = XLSX.read(data, { type: "array" });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" }); // [{Nome, Email}]
+      const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
       const parsed: NovoAluno[] = rows.map((r) => ({
         nome: String(r.Nome || r.nome || r.aluno || "").trim(),
         email: String(r.Email || r.email || "").trim(),
         presente: true
       })).filter((r) => r.nome.length > 0);
       setAlunos((prev) => {
-        // mescla por nome, sem duplicar
         const map = new Map<string, NovoAluno>();
         [...prev, ...parsed].forEach((a) => {
           const key = a.nome.toLowerCase();
@@ -112,15 +110,10 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button type="button" className="btn-primary" onClick={addAluno}>Adicionar aluno</button>
-              <button type="button" className="btn-primary" onClick={onImportClick}>Importar do Excel</button>
-              <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileSelected} />
-            </div>
-
+            {/* Lista de alunos */}
             <div className="rounded-3xl border border-gray-100 bg-white divide-y">
               {alunos.length === 0 && (
-                <div className="p-4 text-gray-500">Nenhum aluno. Use “Adicionar aluno” ou “Importar do Excel”.</div>
+                <div className="p-4 text-gray-500">Nenhum aluno. Use os botões abaixo para adicionar ou importar.</div>
               )}
               {alunos.map((a, i) => (
                 <div key={i} className="p-4 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -145,8 +138,17 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
               ))}
             </div>
 
+            {/* Botões abaixo da lista */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" className="btn-primary" onClick={()=>addAluno()}>Adicionar aluno</button>
+              <button type="button" className="btn-primary" onClick={()=>onImportClick()}>Importar do Excel</button>
+              <a href="/api/samples/alunos-exemplo" className="underline text-sm">Baixar modelo Excel</a>
+              <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileSelected} />
+              <div className="ms-auto"></div>
+              <button className="btn-primary" disabled={loading}>{loading ? "Salvando..." : "Salvar Chamada"}</button>
+            </div>
+
             {err && <p className="text-sm text-red-600">{err}</p>}
-            <button className="btn-primary" disabled={loading}>{loading ? "Salvando..." : "Salvar Chamada"}</button>
           </form>
         </div>
       </main>
