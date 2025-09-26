@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 
 export async function GET() {
   try {
-    const turmas = await prisma.turma.findMany({ orderBy: { createdAt: "desc" } });
+    const turmas = await prisma.$queryRaw<Array<{ id: string; name: string; createdAt: Date }>>(
+      Prisma.sql`SELECT id, name, "createdAt" FROM "Turma" ORDER BY "createdAt" DESC`
+    );
     return NextResponse.json({ ok: true, turmas });
   } catch (e) {
     console.error(e);
@@ -14,11 +17,16 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const { name } = await req.json();
-    if (!name || String(name).trim().length < 2) {
+    const trimmed = String(name ?? "").trim();
+    if (trimmed.length < 2) {
       return NextResponse.json({ ok: false, error: "Nome inválido" }, { status: 400 });
     }
-    const turma = await prisma.turma.create({ data: { name: String(name).trim() } });
-    return NextResponse.json({ ok: true, turma }, { status: 201 });
+    const rows = await prisma.$queryRaw<Array<{ id: string; name: string; createdAt: Date }>>(
+      Prisma.sql`INSERT INTO "Turma" (id, name, "createdAt")
+                 VALUES (gen_random_uuid()::text, ${trimmed}, now())
+                 RETURNING id, name, "createdAt"`
+    );
+    return NextResponse.json({ ok: true, turma: rows[0] }, { status: 201 });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ ok: false, error: "Erro ao criar turma" }, { status: 500 });
