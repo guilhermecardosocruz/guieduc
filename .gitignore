@@ -1,0 +1,24 @@
+# Node / PNPM
+node_modules/
+pnpm-lock.yaml
+
+# Next.js
+.next/
+.out/
+.next-cache/
+.vercel/
+
+# Turborepo / Build caches
+.turbo/
+dist/
+coverage/
+
+# SO / Editor
+.DS_Store
+Thumbs.db
+*.log
+
+# Env
+.env
+.env.*
+!.env.example
