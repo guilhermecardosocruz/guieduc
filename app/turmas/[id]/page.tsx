@@ -40,16 +40,17 @@ export default function TurmaPage({ params }: { params: { id: string } }) {
           {!err && !turma && <p className="text-gray-500">Carregando...</p>}
           {turma && (
             <>
-              <h2 className="text-3xl font-bold mb-2">{turma.name}</h2>
+              <h2 className="text-3xl font-bold mb-3">{turma.name}</h2>
 
-              {/* Botão abaixo do nome da turma */}
-              <div className="mb-8">
-                <Link href={`/turmas/${id}/chamadas`} className="btn-primary">
-                  Adicionar Chamada
-                </Link>
+              {/* Botões abaixo do nome */}
+              <div className="mb-8 flex gap-2">
+                <Link href={`/turmas/${id}/chamadas`} className="btn-primary">Chamadas</Link>
+                <Link href={`/turmas/${id}/conteudos`} className="btn-primary">Conteúdos</Link>
               </div>
 
-              <p className="text-gray-600">Aqui você gerencia a turma. Use o botão acima para abrir a página de chamadas.</p>
+              <p className="text-gray-600">
+                Selecione uma opção acima para gerenciar a turma.
+              </p>
             </>
           )}
         </div>
