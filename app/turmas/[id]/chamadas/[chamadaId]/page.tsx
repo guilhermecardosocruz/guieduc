@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
+import { Trash2 } from "lucide-react";
 
 type Row = { nome: string; email?: string; presente?: boolean };
 
@@ -106,21 +107,49 @@ export default function EditChamadaPage({ params }: { params: { id: string, cham
               </div>
             </div>
 
-            <div className="rounded-3xl border border-gray-100 bg-white divide-y">
+            {/* Lista SLIM */}
+            <div className="rounded-3xl border border-gray-100 bg-white">
               {alunos.length === 0 && (
                 <div className="p-4 text-gray-500">Nenhum aluno nesta chamada. Use os botões abaixo.</div>
               )}
-              {alunos.map((a, i) => (
-                <div key={i} className="p-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <input className="input sm:flex-1" placeholder="Nome" value={a.nome} onChange={(e)=>updateAluno(i, { nome: e.target.value })} />
-                  <input className="input sm:flex-1" placeholder="Email (opcional)" value={a.email || ""} onChange={(e)=>updateAluno(i, { email: e.target.value })} />
-                  <label className="text-sm flex items-center gap-2">
-                    <input type="checkbox" checked={a.presente ?? true} onChange={(e)=>updateAluno(i, { presente: e.target.checked })} />
-                    Presente
-                  </label>
-                  <button type="button" className="underline text-sm" onClick={()=>removeAluno(i)}>Remover</button>
-                </div>
-              ))}
+              <ul className="divide-y">
+                {alunos.map((a, i) => (
+                  <li key={i} className="px-4 py-2 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={()=>removeAluno(i)}
+                      className="p-1 rounded hover:bg-gray-100"
+                      aria-label={`Remover ${a.nome || "aluno"}`}
+                      title="Remover aluno"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+
+                    <input
+                      className="flex-1 bg-transparent outline-none border-b border-gray-200 focus:border-blue-500 py-1 text-sm"
+                      placeholder="Nome do aluno"
+                      value={a.nome}
+                      onChange={(e)=>updateAluno(i, { nome: e.target.value })}
+                    />
+
+                    <input
+                      className="bg-transparent outline-none border-b border-gray-200 focus:border-blue-500 py-1 text-sm w-40 sm:w-56"
+                      placeholder="Email (opcional)"
+                      value={a.email || ""}
+                      onChange={(e)=>updateAluno(i, { email: e.target.value })}
+                    />
+
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={a.presente ?? true}
+                      onChange={(e)=>updateAluno(i, { presente: e.target.checked })}
+                      aria-label={`Presença de ${a.nome || "aluno"}`}
+                      title="Presença"
+                    />
+                  </li>
+                ))}
+              </ul>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">

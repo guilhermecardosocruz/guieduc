@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
+import { Trash2 } from "lucide-react";
 
 type NovoAluno = { nome: string; email?: string; presente?: boolean };
 
@@ -23,22 +24,15 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
     })();
   }, [turmaId]);
 
-  function addAluno() {
-    setAlunos((prev) => [...prev, { nome: "", email: "", presente: true }]);
-  }
+  function addAluno() { setAlunos((prev) => [...prev, { nome: "", email: "", presente: true }]); }
   function updateAluno(i: number, patch: Partial<NovoAluno>) {
     setAlunos((prev) => prev.map((a, idx) => (idx === i ? { ...a, ...patch } : a)));
   }
-  function removeAluno(i: number) {
-    setAlunos((prev) => prev.filter((_, idx) => idx !== i));
-  }
+  function removeAluno(i: number) { setAlunos((prev) => prev.filter((_, idx) => idx !== i)); }
 
-  function onImportClick() {
-    fileRef.current?.click();
-  }
+  function onImportClick() { fileRef.current?.click(); }
   function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = (evt) => {
       const data = new Uint8Array(evt.target?.result as ArrayBuffer);
@@ -110,38 +104,59 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
               </div>
             </div>
 
-            {/* Lista de alunos */}
-            <div className="rounded-3xl border border-gray-100 bg-white divide-y">
+            {/* Lista SLIM de alunos */}
+            <div className="rounded-3xl border border-gray-100 bg-white">
               {alunos.length === 0 && (
                 <div className="p-4 text-gray-500">Nenhum aluno. Use os botões abaixo para adicionar ou importar.</div>
               )}
-              {alunos.map((a, i) => (
-                <div key={i} className="p-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <input
-                    className="input sm:flex-1"
-                    placeholder="Nome do aluno"
-                    value={a.nome}
-                    onChange={(e)=>updateAluno(i, { nome: e.target.value })}
-                  />
-                  <input
-                    className="input sm:flex-1"
-                    placeholder="Email (opcional)"
-                    value={a.email || ""}
-                    onChange={(e)=>updateAluno(i, { email: e.target.value })}
-                  />
-                  <label className="text-sm flex items-center gap-2">
-                    <input type="checkbox" checked={a.presente ?? true} onChange={(e)=>updateAluno(i, { presente: e.target.checked })} />
-                    Presente
-                  </label>
-                  <button type="button" onClick={()=>removeAluno(i)} className="underline text-sm">Remover</button>
-                </div>
-              ))}
+              <ul className="divide-y">
+                {alunos.map((a, i) => (
+                  <li key={i} className="px-4 py-2 flex items-center gap-3">
+                    {/* Lixeira ANTES do nome */}
+                    <button
+                      type="button"
+                      onClick={()=>removeAluno(i)}
+                      className="p-1 rounded hover:bg-gray-100"
+                      aria-label={`Remover ${a.nome || "aluno"}`}
+                      title="Remover aluno"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+
+                    {/* Nome: sem caixa, só linha inferior */}
+                    <input
+                      className="flex-1 bg-transparent outline-none border-b border-gray-200 focus:border-blue-500 py-1 text-sm"
+                      placeholder="Nome do aluno"
+                      value={a.nome}
+                      onChange={(e)=>updateAluno(i, { nome: e.target.value })}
+                    />
+
+                    {/* Email: também linha inferior, largura fixa em telas maiores */}
+                    <input
+                      className="bg-transparent outline-none border-b border-gray-200 focus:border-blue-500 py-1 text-sm w-40 sm:w-56"
+                      placeholder="Email (opcional)"
+                      value={a.email || ""}
+                      onChange={(e)=>updateAluno(i, { email: e.target.value })}
+                    />
+
+                    {/* Presença: só o marcador */}
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={a.presente ?? true}
+                      onChange={(e)=>updateAluno(i, { presente: e.target.checked })}
+                      aria-label={`Presença de ${a.nome || "aluno"}`}
+                      title="Presença"
+                    />
+                  </li>
+                ))}
+              </ul>
             </div>
 
             {/* Botões abaixo da lista */}
             <div className="flex flex-wrap items-center gap-2">
-              <button type="button" className="btn-primary" onClick={()=>addAluno()}>Adicionar aluno</button>
-              <button type="button" className="btn-primary" onClick={()=>onImportClick()}>Importar do Excel</button>
+              <button type="button" className="btn-primary" onClick={addAluno}>Adicionar aluno</button>
+              <button type="button" className="btn-primary" onClick={onImportClick}>Importar do Excel</button>
               <a href="/api/samples/alunos-exemplo" className="underline text-sm">Baixar modelo Excel</a>
               <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileSelected} />
               <div className="ms-auto"></div>
