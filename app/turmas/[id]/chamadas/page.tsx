@@ -38,7 +38,7 @@ export default function ChamadasPage({ params }: { params: { id: string } }) {
           <h1 className="text-xl font-bold">GUIEDUC</h1>
           <div className="flex gap-2">
             <Link href={`/turmas/${id}`} className="btn-primary">Voltar</Link>
-            <Link href={`/turmas/${id}/chamadas/new`} className="btn-primary">Nova Chamada</Link>
+            <Link href={`/turmas/${id}/chamadas/new`} className="btn-primary">Adicionar Chamada</Link>
           </div>
         </div>
       </header>
@@ -50,9 +50,8 @@ export default function ChamadasPage({ params }: { params: { id: string } }) {
           {turma && (
             <>
               <h2 className="text-3xl font-bold mb-2">Chamadas — {turma.name}</h2>
-
               {chamadas.length === 0 ? (
-                <p className="text-gray-500">Nenhuma chamada registrada ainda. Use “Nova Chamada”.</p>
+                <p className="text-gray-500">Nenhuma chamada registrada ainda.</p>
               ) : (
                 <div className="grid sm:grid-cols-2 gap-3">
                   {chamadas.map((c) => (
@@ -60,7 +59,7 @@ export default function ChamadasPage({ params }: { params: { id: string } }) {
                       <div className="text-sm text-gray-500">
                         Data: {new Date(c.date).toLocaleDateString("pt-BR")}
                       </div>
-                      {c.notes && <div className="text-sm mt-1">Obs.: {c.notes}</div>}
+                      {c.conteudo && <div className="text-sm mt-1">Conteúdo: {c.conteudo}</div>}
                     </div>
                   ))}
                 </div>

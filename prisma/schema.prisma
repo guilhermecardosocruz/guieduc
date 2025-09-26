@@ -21,17 +21,44 @@ model Turma {
   id        String    @id @default(cuid())
   name      String
   createdAt DateTime  @default(now())
+  Aluno     Aluno[]
   Chamada   Chamada[]
+}
+
+model Aluno {
+  id        String   @id @default(cuid())
+  turmaId   String
+  nome      String
+  email     String?
+  createdAt DateTime @default(now())
+
+  Turma Turma         @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+  Itens ChamadaItem[]
+
+  @@index([turmaId, nome])
 }
 
 model Chamada {
   id        String   @id @default(cuid())
   turmaId   String
   date      DateTime @default(now())
-  notes     String? // observações
+  conteudo  String?
   createdAt DateTime @default(now())
 
-  Turma Turma @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+  Turma Turma         @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+  Itens ChamadaItem[]
 
   @@index([turmaId, date])
+}
+
+model ChamadaItem {
+  id        String  @id @default(cuid())
+  chamadaId String
+  alunoId   String
+  presente  Boolean @default(true)
+
+  Chamada Chamada @relation(fields: [chamadaId], references: [id], onDelete: Cascade)
+  Aluno   Aluno   @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+
+  @@unique([chamadaId, alunoId])
 }
