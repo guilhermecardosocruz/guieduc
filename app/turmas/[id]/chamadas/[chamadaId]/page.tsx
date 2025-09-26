@@ -51,7 +51,7 @@ export default function EditChamadaPage({ params }: { params: { id: string, cham
       const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
       const parsed: Row[] = rows.map((r) => ({
         nome: String(r.Nome || r.nome || r.aluno || "").trim(),
-        email: String(r.Email || r.email || "").trim(),
+        email: String(r.Email || r.email || "").trim(), // mantido no estado (não exibido)
         presente: true
       })).filter((r) => r.nome.length > 0);
       setAlunos((prev) => {
@@ -107,7 +107,7 @@ export default function EditChamadaPage({ params }: { params: { id: string, cham
               </div>
             </div>
 
-            {/* Lista SLIM */}
+            {/* Lista SLIM (sem e-mail) */}
             <div className="rounded-3xl border border-gray-100 bg-white">
               {alunos.length === 0 && (
                 <div className="p-4 text-gray-500">Nenhum aluno nesta chamada. Use os botões abaixo.</div>
@@ -130,13 +130,6 @@ export default function EditChamadaPage({ params }: { params: { id: string, cham
                       placeholder="Nome do aluno"
                       value={a.nome}
                       onChange={(e)=>updateAluno(i, { nome: e.target.value })}
-                    />
-
-                    <input
-                      className="bg-transparent outline-none border-b border-gray-200 focus:border-blue-500 py-1 text-sm w-40 sm:w-56"
-                      placeholder="Email (opcional)"
-                      value={a.email || ""}
-                      onChange={(e)=>updateAluno(i, { email: e.target.value })}
                     />
 
                     <input

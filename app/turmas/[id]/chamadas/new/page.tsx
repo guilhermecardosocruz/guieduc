@@ -20,6 +20,7 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
     (async () => {
       const res = await fetch(`/api/turmas/${turmaId}/alunos`, { cache: "no-store" });
       const data = res.ok ? await res.json() : { alunos: [] };
+      // Mantemos email no estado (não exibido), útil para futuro
       setAlunos((data.alunos || []).map((a: any) => ({ nome: a.nome, email: a.email ?? "", presente: true })));
     })();
   }, [turmaId]);
@@ -41,7 +42,7 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
       const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
       const parsed: NovoAluno[] = rows.map((r) => ({
         nome: String(r.Nome || r.nome || r.aluno || "").trim(),
-        email: String(r.Email || r.email || "").trim(),
+        email: String(r.Email || r.email || "").trim(), // mantido no estado (não exibido)
         presente: true
       })).filter((r) => r.nome.length > 0);
       setAlunos((prev) => {
@@ -64,7 +65,7 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
       const payload = {
         date,
         conteudo,
-        alunos: alunos.filter(a => a.nome.trim().length > 0)
+        alunos: alunos.filter(a => a.nome.trim().length > 0) // email segue junto no objeto
       };
       const res = await fetch(`/api/turmas/${turmaId}/chamadas`, {
         method: "POST",
@@ -104,7 +105,7 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
               </div>
             </div>
 
-            {/* Lista SLIM de alunos */}
+            {/* Lista SLIM (sem campo de e-mail) */}
             <div className="rounded-3xl border border-gray-100 bg-white">
               {alunos.length === 0 && (
                 <div className="p-4 text-gray-500">Nenhum aluno. Use os botões abaixo para adicionar ou importar.</div>
@@ -123,20 +124,12 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
                       <Trash2 size={16} />
                     </button>
 
-                    {/* Nome: sem caixa, só linha inferior */}
+                    {/* Nome: sem caixa, apenas linha inferior */}
                     <input
                       className="flex-1 bg-transparent outline-none border-b border-gray-200 focus:border-blue-500 py-1 text-sm"
                       placeholder="Nome do aluno"
                       value={a.nome}
                       onChange={(e)=>updateAluno(i, { nome: e.target.value })}
-                    />
-
-                    {/* Email: também linha inferior, largura fixa em telas maiores */}
-                    <input
-                      className="bg-transparent outline-none border-b border-gray-200 focus:border-blue-500 py-1 text-sm w-40 sm:w-56"
-                      placeholder="Email (opcional)"
-                      value={a.email || ""}
-                      onChange={(e)=>updateAluno(i, { email: e.target.value })}
                     />
 
                     {/* Presença: só o marcador */}
