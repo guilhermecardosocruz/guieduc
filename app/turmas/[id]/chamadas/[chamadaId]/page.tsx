@@ -70,7 +70,9 @@ export default function EditChamadaPage({ params }: { params: { id: string, cham
     try {
       const payload = { date, conteudo, alunos: alunos.filter(a => a.nome.trim().length > 0) };
       const res = await fetch(`/api/turmas/${turmaId}/chamadas/${chamadaId}`, {
-        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "Erro ao salvar alteração");
@@ -121,14 +123,12 @@ export default function EditChamadaPage({ params }: { params: { id: string, cham
                     >
                       <Trash2 size={16} />
                     </button>
-
                     <input
                       className="flex-1 bg-transparent outline-none border-b border-gray-200 focus:border-blue-500 py-1 text-sm"
                       placeholder="Nome do aluno"
                       value={a.nome}
                       onChange={(e)=>updateAluno(i, { nome: e.target.value })}
                     />
-
                     <input
                       type="checkbox" className="h-4 w-4"
                       checked={a.presente ?? true}
@@ -140,26 +140,28 @@ export default function EditChamadaPage({ params }: { params: { id: string, cham
               </ul>
             </div>
 
+            {/* Ações — conforme solicitado */}
             <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <button type="button" className="btn-primary" onClick={addAluno}>Adicionar aluno</button>
-
-                {/* Grupo Excel */}
-                <div className="flex items-center gap-2">
-                  <button type="button" className="btn-primary flex items-center gap-1.5" onClick={onImportClick}>
-                    <Upload size={16}/> Importar do Excel
-                  </button>
-                  <a href="/api/samples/alunos-exemplo" className="inline-flex items-center gap-1.5 underline text-sm">
-                    <FileSpreadsheet size={16}/> Modelo Excel
-                  </a>
-                </div>
-
-                <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileSelected} />
-              </div>
-
+              {/* 1) Salvar Chamada — full width */}
               <button className="btn-primary w-full py-3 text-base" disabled={saving}>
                 {saving ? "Salvando..." : "Salvar Chamada"}
               </button>
+
+              {/* 2) Adicionar aluno — full width */}
+              <button type="button" className="btn-primary w-full py-3 text-base" onClick={addAluno}>
+                Adicionar aluno
+              </button>
+
+              {/* 3) Linha final: Importar + Modelo (lado a lado) */}
+              <div className="flex flex-wrap items-center gap-3">
+                <button type="button" className="btn-primary flex items-center gap-1.5" onClick={onImportClick}>
+                  <Upload size={16}/> Importar do Excel
+                </button>
+                <a href="/api/samples/alunos-exemplo" className="inline-flex items-center gap-1.5 underline text-sm">
+                  <FileSpreadsheet size={16}/> Modelo Excel
+                </a>
+                <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileSelected} />
+              </div>
             </div>
 
             {err && <p className="text-sm text-red-600">{err}</p>}

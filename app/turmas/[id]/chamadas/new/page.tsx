@@ -46,7 +46,10 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
       })).filter((r) => r.nome.length > 0);
       setAlunos((prev) => {
         const map = new Map<string, NovoAluno>();
-        [...prev, ...parsed].forEach((a) => map.set(a.nome.toLowerCase(), { ...map.get(a.nome.toLowerCase()), ...a }));
+        [...prev, ...parsed].forEach((a) => {
+          const key = a.nome.toLowerCase();
+          map.set(key, { ...map.get(key), ...a });
+        });
         return Array.from(map.values());
       });
     };
@@ -58,9 +61,15 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
     e.preventDefault();
     setErr(""); setLoading(true);
     try {
-      const payload = { date, conteudo, alunos: alunos.filter(a => a.nome.trim().length > 0) };
+      const payload = {
+        date,
+        conteudo,
+        alunos: alunos.filter(a => a.nome.trim().length > 0)
+      };
       const res = await fetch(`/api/turmas/${turmaId}/chamadas`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "Erro ao salvar chamada");
@@ -95,7 +104,7 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
               </div>
             </div>
 
-            {/* Lista SLIM (sem e-mail) */}
+            {/* Lista SLIM */}
             <div className="rounded-3xl border border-gray-100 bg-white">
               {alunos.length === 0 && (
                 <div className="p-4 text-gray-500">Nenhum aluno. Use os botões abaixo para adicionar ou importar.</div>
@@ -103,7 +112,6 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
               <ul className="divide-y">
                 {alunos.map((a, i) => (
                   <li key={i} className="px-4 py-2 flex items-center gap-3">
-                    {/* Lixeira antes do nome */}
                     <button
                       type="button"
                       onClick={()=>removeAluno(i)}
@@ -112,18 +120,15 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
                     >
                       <Trash2 size={16} />
                     </button>
-
-                    {/* Nome: linha inferior */}
                     <input
                       className="flex-1 bg-transparent outline-none border-b border-gray-200 focus:border-blue-500 py-1 text-sm"
                       placeholder="Nome do aluno"
                       value={a.nome}
                       onChange={(e)=>updateAluno(i, { nome: e.target.value })}
                     />
-
-                    {/* Presença: só o marcador */}
                     <input
-                      type="checkbox" className="h-4 w-4" checked={a.presente ?? true}
+                      type="checkbox" className="h-4 w-4"
+                      checked={a.presente ?? true}
                       onChange={(e)=>updateAluno(i, { presente: e.target.checked })}
                       aria-label={`Presença de ${a.nome || "aluno"}`} title="Presença"
                     />
@@ -132,28 +137,28 @@ export default function NovaChamadaPage({ params }: { params: { id: string } }) 
               </ul>
             </div>
 
-            {/* Ações: grupo de Excel + adicionar, e botão full-width */}
+            {/* Ações — conforme solicitado */}
             <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <button type="button" className="btn-primary" onClick={addAluno}>Adicionar aluno</button>
-
-                {/* Grupo Excel */}
-                <div className="flex items-center gap-2">
-                  <button type="button" className="btn-primary flex items-center gap-1.5" onClick={onImportClick}>
-                    <Upload size={16}/> Importar do Excel
-                  </button>
-                  <a href="/api/samples/alunos-exemplo" className="inline-flex items-center gap-1.5 underline text-sm">
-                    <FileSpreadsheet size={16}/> Modelo Excel
-                  </a>
-                </div>
-
-                <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileSelected} />
-              </div>
-
-              {/* Salvar: full width */}
+              {/* 1) Salvar Chamada — full width */}
               <button className="btn-primary w-full py-3 text-base" disabled={loading}>
                 {loading ? "Salvando..." : "Salvar Chamada"}
               </button>
+
+              {/* 2) Adicionar aluno — full width */}
+              <button type="button" className="btn-primary w-full py-3 text-base" onClick={addAluno}>
+                Adicionar aluno
+              </button>
+
+              {/* 3) Linha final: Importar + Modelo (lado a lado) */}
+              <div className="flex flex-wrap items-center gap-3">
+                <button type="button" className="btn-primary flex items-center gap-1.5" onClick={onImportClick}>
+                  <Upload size={16}/> Importar do Excel
+                </button>
+                <a href="/api/samples/alunos-exemplo" className="inline-flex items-center gap-1.5 underline text-sm">
+                  <FileSpreadsheet size={16}/> Modelo Excel
+                </a>
+                <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileSelected} />
+              </div>
             </div>
 
             {err && <p className="text-sm text-red-600">{err}</p>}
