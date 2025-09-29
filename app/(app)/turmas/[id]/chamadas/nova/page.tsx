@@ -102,7 +102,11 @@ export default function NovaChamadaPage() {
             onChange={(e)=>{ const f=e.target.files?.[0]; if (f) onImport(f); }}
           />
         </label>
-        <a href="/templates/modelo-alunos.csv" className="underline text-sm" target="_blank" rel="noreferrer">planilha padrão (CSV)</a>
+        <div className="flex items-center gap-3 text-sm">
+          <a href="/templates/modelo-alunos.csv" className="underline" target="_blank" rel="noreferrer">planilha padrão (CSV)</a>
+          <span className="text-gray-300">|</span>
+          <a href="/templates/modelo-alunos.xlsx" className="underline" target="_blank" rel="noreferrer">planilha padrão (XLSX)</a>
+        </div>
       </div>
     </div>
   );

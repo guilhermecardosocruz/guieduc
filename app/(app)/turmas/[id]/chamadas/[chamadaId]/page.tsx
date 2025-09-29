@@ -106,7 +106,11 @@ export default function EditarChamadaPage() {
             onChange={(e)=>{ const f=e.target.files?.[0]; if (f) onImport(f); }}
           />
         </label>
-        <a href="/templates/modelo-alunos.csv" className="underline text-sm" target="_blank" rel="noreferrer">planilha padrão (CSV)</a>
+        <div className="flex items-center gap-3 text-sm">
+          <a href="/templates/modelo-alunos.csv" className="underline" target="_blank" rel="noreferrer">planilha padrão (CSV)</a>
+          <span className="text-gray-300">|</span>
+          <a href="/templates/modelo-alunos.xlsx" className="underline" target="_blank" rel="noreferrer">planilha padrão (XLSX)</a>
+        </div>
         <button onClick={onDelete} className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border border-red-300 text-red-600 hover:bg-red-50">Excluir chamada</button>
       </div>
     </div>
