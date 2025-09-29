@@ -1,51 +1,37 @@
 "use client";
-import Link from "next/link";
-import { Turma } from "@/lib/storage";
-import { Trash2 } from "lucide-react";
+import type { Turma } from "@/lib/storage";
 
 export default function TurmasGrid({
   turmas,
-  onDelete
+  onDelete,
 }: {
   turmas: Turma[];
   onDelete: (id: string) => void;
 }) {
-  if (turmas.length === 0) {
+  if (!turmas.length) {
     return (
-      <div className="rounded-2xl border border-gray-100 p-4 bg-white text-sm text-gray-600">
-        Nenhuma turma ainda. Use o formulário acima para criar sua primeira turma.
-      </div>
+      <p className="text-sm text-gray-500">
+        Nenhuma turma ainda. Crie a primeira no campo acima.
+      </p>
     );
   }
 
   return (
-    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+    <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {turmas.map((t) => (
-        <Link
-          key={t.id}
-          href={`/turmas/${t.id}`}
-          className="group relative rounded-2xl border border-gray-100 bg-white p-4 hover:shadow-sm hover:-translate-y-px transition"
-          aria-label={`Abrir turma ${t.nome}`}
-        >
-          <div className="pr-10 text-base font-semibold text-gray-900 truncate">
-            {t.nome}
-          </div>
-
-          {/* botão excluir (não navega ao clicar) */}
+        <div key={t.id} className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white">
+          <a href={`/turmas/${t.id}`} className="block px-4 py-3">
+            <div className="font-medium truncate">{t.nome}</div>
+          </a>
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (confirm(`Excluir a turma "${t.nome}"?`)) onDelete(t.id);
-            }}
-            className="absolute top-2 right-2 inline-flex items-center justify-center h-8 w-8 rounded-xl border border-red-200 text-red-600 hover:bg-red-50"
+            onClick={() => onDelete(t.id)}
+            className="absolute right-2 top-2 rounded-xl border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
             aria-label={`Excluir turma ${t.nome}`}
-            title="Excluir"
+            title="Excluir turma"
           >
-            <Trash2 size={16} aria-hidden="true" />
-            <span className="sr-only">Excluir</span>
+            Excluir
           </button>
-        </Link>
+        </div>
       ))}
     </div>
   );

@@ -2,28 +2,48 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Brand from "@/components/Brand";
+import TurmasGrid from "@/components/TurmasGrid";
+import { listTurmas, addTurma, removeTurma, type Turma } from "@/lib/storage";
 
 type User = { name: string; email: string };
 
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [turmas, setTurmas] = useState<Turma[]>([]);
+  const [novoNome, setNovoNome] = useState("");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const raw = localStorage.getItem("guieduc:user");
-      setUser(raw ? JSON.parse(raw) as User : null);
+      setUser(raw ? (JSON.parse(raw) as User) : null);
     } catch {
       setUser(null);
     }
+    setTurmas(listTurmas());
   }, []);
 
-  function fakeLogout() {
+  function onLogout() {
     if (typeof window !== "undefined") {
       localStorage.removeItem("guieduc:user");
     }
     router.push("/login");
+  }
+
+  function onAddTurma(e: React.FormEvent) {
+    e.preventDefault();
+    const nome = novoNome.trim();
+    if (!nome) return;
+    addTurma(nome);
+    setTurmas(listTurmas());
+    setNovoNome("");
+  }
+
+  function onDeleteTurma(id: string) {
+    if (!confirm("Excluir esta turma?")) return;
+    removeTurma(id);
+    setTurmas(listTurmas());
   }
 
   const nome = user?.name || "Usuário";
@@ -33,20 +53,26 @@ export default function DashboardPage() {
       <header className="w-full border-b border-gray-100 bg-white">
         <div className="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
           <Brand />
-          <button onClick={fakeLogout} className="btn-primary">Sair</button>
+          <button onClick={onLogout} className="btn-primary">Sair</button>
         </div>
       </header>
 
       <main className="flex-1">
-        <div className="mx-auto max-w-6xl px-6 py-10">
+        <div className="mx-auto max-w-6xl px-6 py-8">
           <h1 className="text-3xl font-bold mb-2">Olá, {nome}</h1>
-          <p className="text-gray-600">Você está logado(a). Base pronta para evoluir (turmas, aulas, chamadas...).</p>
+          <p className="text-gray-600">Gerencie suas turmas abaixo.</p>
 
-          <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="rounded-3xl border border-gray-100 p-6 bg-white">Card 1</div>
-            <div className="rounded-3xl border border-gray-100 p-6 bg-white">Card 2</div>
-            <div className="rounded-3xl border border-gray-100 p-6 bg-white">Card 3</div>
-          </div>
+          <form onSubmit={onAddTurma} className="mt-6 flex flex-wrap items-center gap-2">
+            <input
+              className="input max-w-xs"
+              placeholder="Nome da nova turma"
+              value={novoNome}
+              onChange={(e) => setNovoNome(e.target.value)}
+            />
+            <button className="btn-primary">Adicionar turma</button>
+          </form>
+
+          <TurmasGrid turmas={turmas} onDelete={onDeleteTurma} />
         </div>
       </main>
 
