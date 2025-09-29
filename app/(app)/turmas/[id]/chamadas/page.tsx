@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import TabBtn from "@/components/TabBtn";
 import {
@@ -14,8 +14,6 @@ export default function ChamadasPage() {
 
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [editing, setEditing] = useState(false);
-
-  // campos da chamada
   const [titulo, setTitulo] = useState("");
   const [conteudo, setConteudo] = useState("");
   const [presencas, setPresencas] = useState<Record<string, boolean>>({});
@@ -77,9 +75,9 @@ export default function ChamadasPage() {
 
   return (
     <div>
-      {/* Botões azuis maiores (navegação Chamadas/Conteúdos) */}
+      {/* Botões (Chamadas abre em nova aba) */}
       <div className="flex gap-2">
-        <TabBtn href={`${base}/chamadas`} active>Chamadas</TabBtn>
+        <TabBtn href={`${base}/chamadas`} active newTab>Chamadas</TabBtn>
         <TabBtn href={`${base}/conteudos`} active={false}>Conteúdos</TabBtn>
       </div>
 
@@ -167,15 +165,6 @@ export default function ChamadasPage() {
             >
               planilha padrão
             </a>
-
-            <div className="grow" />
-
-            <button
-              onClick={()=>setEditing(false)}
-              className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border hover:bg-gray-50"
-            >
-              Fechar
-            </button>
           </div>
         </div>
       )}

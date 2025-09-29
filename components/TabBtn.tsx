@@ -5,18 +5,24 @@ export default function TabBtn({
   href,
   active,
   children,
+  newTab = false,
 }: {
   href: string;
   active: boolean;
   children: React.ReactNode;
+  newTab?: boolean;
 }) {
-  // maior e azul: ativo = preenchido; inativo = contorno azul
-  const base = "inline-flex items-center justify-center rounded-2xl px-4 py-2 text-base font-medium transition";
+  const base =
+    "inline-flex items-center justify-center rounded-2xl px-4 py-2 text-base font-medium transition";
   const style = active
     ? "bg-[color:var(--color-secondary)] text-white hover:opacity-90"
     : "border border-[color:var(--color-secondary)] text-[color:var(--color-secondary)] hover:bg-blue-50";
+
+  const target = newTab ? "_blank" : undefined;
+  const rel = newTab ? "noreferrer" : undefined;
+
   return (
-    <Link href={href} className={`${base} ${style}`}>
+    <Link href={href} className={`${base} ${style}`} target={target} rel={rel} prefetch={false}>
       {children}
     </Link>
   );

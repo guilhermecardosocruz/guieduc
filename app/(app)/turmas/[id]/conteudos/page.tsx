@@ -9,7 +9,7 @@ export default function ConteudosPage() {
   return (
     <div>
       <div className="flex gap-2">
-        <TabBtn href={`${base}/chamadas`} active={false}>Chamadas</TabBtn>
+        <TabBtn href={`${base}/chamadas`} active={false} newTab>Chamadas</TabBtn>
         <TabBtn href={`${base}/conteudos`} active>Conteúdos</TabBtn>
       </div>
 
