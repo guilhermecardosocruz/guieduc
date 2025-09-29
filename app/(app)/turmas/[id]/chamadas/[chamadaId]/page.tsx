@@ -6,6 +6,7 @@ import {
   getChamada, updateChamadaAndConteudo, removeChamada,
   type Aluno, type Chamada
 } from "@/lib/storage";
+import { parseAlunosFile } from "@/lib/xls";
 
 export default function EditarChamadaPage() {
   const { id: turmaId, chamadaId } = useParams<{ id: string; chamadaId: string }>();
@@ -38,13 +39,8 @@ export default function EditarChamadaPage() {
     if (typeof window !== "undefined") window.location.href = `/turmas/${turmaId}/chamadas`;
   }
 
-  async function onImportCSV(file: File) {
-    const text = await file.text();
-    const lines = text.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
-    let start = 0;
-    const header = lines[0]?.toLowerCase().replace(/;/g, ",") || "";
-    if (header.includes("nome")) start = 1;
-    const nomes = lines.slice(start).map(l => (l.split(/[;,]/)[0] || ""));
+  async function onImport(file: File) {
+    const nomes = await parseAlunosFile(file);
     addAlunosCSV(turmaId, nomes);
     const atual = listAlunos(turmaId);
     setAlunos(atual);
@@ -101,10 +97,16 @@ export default function EditarChamadaPage() {
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button onClick={onSave} className="btn-primary">Salvar alterações</button>
         <label className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border cursor-pointer hover:bg-gray-50">
-          Adicionar alunos (CSV)
-          <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e)=>{ const f=e.target.files?.[0]; if (f) onImportCSV(f); }} />
+          Adicionar alunos (CSV/XLSX)
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+            className="hidden"
+            onChange={(e)=>{ const f=e.target.files?.[0]; if (f) onImport(f); }}
+          />
         </label>
-        <a href="/templates/modelo-alunos.csv" className="underline text-sm" target="_blank" rel="noreferrer">planilha padrão</a>
+        <a href="/templates/modelo-alunos.csv" className="underline text-sm" target="_blank" rel="noreferrer">planilha padrão (CSV)</a>
         <button onClick={onDelete} className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border border-red-300 text-red-600 hover:bg-red-50">Excluir chamada</button>
       </div>
     </div>

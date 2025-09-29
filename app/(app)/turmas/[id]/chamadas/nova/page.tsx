@@ -5,6 +5,7 @@ import {
   listAlunos, addAluno, addAlunosCSV, addChamadaWithConteudo,
   type Aluno
 } from "@/lib/storage";
+import { parseAlunosFile } from "@/lib/xls";
 
 export default function NovaChamadaPage() {
   const { id: turmaId } = useParams<{ id: string }>();
@@ -30,12 +31,8 @@ export default function NovaChamadaPage() {
     setPresencas(prev => ({ ...prev, [novo.id]: true }));
   }
 
-  async function onImportCSV(file: File) {
-    const text = await file.text();
-    const lines = text.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
-    let start = 0;
-    if (lines[0]?.toLowerCase().replace(/;/g, ",").includes("nome")) start = 1;
-    const nomes = lines.slice(start).map(l => (l.split(/[;,]/)[0] || ""));
+  async function onImport(file: File) {
+    const nomes = await parseAlunosFile(file);
     addAlunosCSV(turmaId, nomes);
     const atual = listAlunos(turmaId);
     setAlunos(atual);
@@ -96,10 +93,16 @@ export default function NovaChamadaPage() {
         <button onClick={onSalvarChamada} className="btn-primary">Salvar chamada</button>
         <button onClick={onAddAluno} className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border border-[color:var(--color-secondary)] text-[color:var(--color-secondary)] hover:bg-blue-50">Adicionar aluno</button>
         <label className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border cursor-pointer hover:bg-gray-50">
-          Adicionar alunos (CSV)
-          <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e)=>{ const f=e.target.files?.[0]; if (f) onImportCSV(f); }} />
+          Adicionar alunos (CSV/XLSX)
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+            className="hidden"
+            onChange={(e)=>{ const f=e.target.files?.[0]; if (f) onImport(f); }}
+          />
         </label>
-        <a href="/templates/modelo-alunos.csv" className="underline text-sm" target="_blank" rel="noreferrer">planilha padrão</a>
+        <a href="/templates/modelo-alunos.csv" className="underline text-sm" target="_blank" rel="noreferrer">planilha padrão (CSV)</a>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { listConteudos, addConteudosCSV, type Conteudo } from "@/lib/storage";
+import { parseConteudosFile } from "@/lib/xls";
 
 export default function ConteudosPage() {
   const { id } = useParams<{ id: string }>();
@@ -11,20 +12,12 @@ export default function ConteudosPage() {
 
   useEffect(() => { setItems(listConteudos(id)); }, [id]);
 
-  async function onImportCSV(file: File) {
-    const text = await file.text();
-    const lines = text.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
-    let start = 0;
-    const header = lines[0]?.toLowerCase().replace(/;/g, ",") || "";
-    if (header.includes("titulo") || header.includes("título")) start = 1;
-    const pares = lines.slice(start).map(l => {
-      const [t, d] = l.split(/[;,]/);
-      return { titulo: (t||"").trim(), descricao: (d||"").trim() };
-    });
+  async function onImport(file: File) {
+    const pares = await parseConteudosFile(file);
     addConteudosCSV(id, pares);
     setItems(listConteudos(id));
     if (fileRef.current) fileRef.current.value = "";
-    alert(`${pares.filter(p=>p.titulo).length} conteúdo(s) importado(s)`);
+    alert(`${pares.length} conteúdo(s) importado(s)`);
   }
 
   return (
@@ -32,10 +25,16 @@ export default function ConteudosPage() {
       <div className="flex flex-wrap items-center gap-2">
         <a href={`${base}/conteudos/novo`} className="btn-primary">Adicionar conteúdo</a>
         <label className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border cursor-pointer hover:bg-gray-50">
-          Adicionar conteúdos (CSV)
-          <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e)=>{ const f=e.target.files?.[0]; if (f) onImportCSV(f); }} />
+          Adicionar conteúdos (CSV/XLSX)
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+            className="hidden"
+            onChange={(e)=>{ const f=e.target.files?.[0]; if (f) onImport(f); }}
+          />
         </label>
-        <a href="/templates/modelo-conteudos.csv" className="underline text-sm" target="_blank" rel="noreferrer">planilha padrão</a>
+        <a href="/templates/modelo-conteudos.csv" className="underline text-sm" target="_blank" rel="noreferrer">planilha padrão (CSV)</a>
       </div>
 
       <div className="mt-6">
