@@ -4,28 +4,30 @@ import type { Metadata, Viewport } from "next";
 export const metadata: Metadata = {
   title: "GUIEDUC",
   description: "Acesso e gerenciamento educacional",
+  applicationName: "GUIEDUC",
   manifest: "/manifest.webmanifest",
-  icons: {
-    icon: [
-      { url: "/icons/icon-192.svg", sizes: "192x192", type: "image/svg+xml" },
-      { url: "/icons/icon-512.svg", sizes: "512x512", type: "image/svg+xml" }
-    ],
-    apple: [
-      { url: "/icons/maskable-192.svg", sizes: "192x192", type: "image/svg+xml" },
-      { url: "/icons/maskable-512.svg", sizes: "512x512", type: "image/svg+xml" }
-    ],
-    other: [{ rel: "mask-icon", url: "/icons/maskable-512.svg" }]
-  },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "GUIEDUC" },
   openGraph: { title: "GUIEDUC", type: "website" }
 };
 
-export const viewport: Viewport = { themeColor: "#0A66FF" };
+export const viewport: Viewport = {
+  themeColor: "#0A66FF" // moveu themeColor para viewport (Next 15)
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR">
-      <body className="min-h-dvh">{children}</body>
+    <html lang="pt-BR" className="bg-white">
+      <head>
+        {/* força claro antes do CSS carregar */}
+        <meta name="color-scheme" content="light" />
+        <style
+          // crítico: evita tela escura na primeira pintura
+          dangerouslySetInnerHTML={{ __html: "html,body{background:#fff;}" }}
+        />
+      </head>
+      <body className="min-h-dvh bg-white" style={{ backgroundColor: "#fff" }}>
+        {children}
+      </body>
     </html>
   );
 }
