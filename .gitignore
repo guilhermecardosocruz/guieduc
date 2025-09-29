@@ -1,0 +1,23 @@
+# Node
+node_modules/
+
+# Next.js
+.next/
+.out/
+.next-cache/
+.vercel/
+
+# Turborepo / build caches
+.turbo/
+dist/
+coverage/
+
+# SO / Editor
+.DS_Store
+Thumbs.db
+*.log
+
+# Env
+.env
+.env.*
+!.env.example
