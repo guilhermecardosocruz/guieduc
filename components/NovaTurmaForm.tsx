@@ -19,11 +19,8 @@ export default function NovaTurmaForm() {
     }
     setLoading(true);
     try {
-      const t = addTurma(clean);
+      addTurma(clean);
       setNome("");
-      // opcional: navegar direto para a turma criada
-      // router.push(`/turmas/${t.id}`);
-      // ou permanecer no dashboard e listar:
       router.refresh();
     } finally {
       setLoading(false);
@@ -35,12 +32,7 @@ export default function NovaTurmaForm() {
       <h3 className="text-lg font-semibold mb-2">Nova turma</h3>
       <p className="text-sm text-gray-500 mb-4">Crie uma turma para organizar seus alunos/aulas.</p>
       <div className="flex gap-2">
-        <input
-          className="input"
-          placeholder="Ex.: 3º Ano A (manhã)"
-          value={nome}
-          onChange={(e)=>setNome(e.target.value)}
-        />
+        <input className="input" placeholder="Ex.: 3º Ano A (manhã)" value={nome} onChange={(e)=>setNome(e.target.value)} />
         <button className="btn-primary whitespace-nowrap" disabled={loading}>
           {loading ? "Adicionando..." : "Adicionar"}
         </button>

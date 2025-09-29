@@ -18,14 +18,9 @@ export function saveTurmas(items: Turma[]) {
 }
 
 export function addTurma(nome: string): Turma {
-  const nova: Turma = {
-    id: crypto.randomUUID(),
-    nome: nome.trim(),
-    createdAt: Date.now()
-  };
+  const nova: Turma = { id: crypto.randomUUID(), nome: nome.trim(), createdAt: Date.now() };
   const atual = listTurmas();
-  const prox = [nova, ...atual];
-  saveTurmas(prox);
+  saveTurmas([nova, ...atual]);
   return nova;
 }
 
