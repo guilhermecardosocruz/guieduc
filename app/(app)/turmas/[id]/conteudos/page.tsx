@@ -8,7 +8,6 @@ export default function ConteudosPage() {
 
   return (
     <div>
-      {/* Botões azuis maiores */}
       <div className="flex gap-2">
         <TabBtn href={`${base}/chamadas`} active={false}>Chamadas</TabBtn>
         <TabBtn href={`${base}/conteudos`} active>Conteúdos</TabBtn>
