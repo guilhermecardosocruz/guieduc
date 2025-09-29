@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
   listAlunos, addAlunosCSV,
-  getChamada, updateChamada, removeChamada,
+  getChamada, updateChamadaAndConteudo, removeChamada,
   type Aluno, type Chamada
 } from "@/lib/storage";
 
@@ -27,7 +27,7 @@ export default function EditarChamadaPage() {
     if (!model) return;
     const t = model.titulo.trim();
     if (!t) return alert("Informe o nome da aula.");
-    updateChamada(turmaId, { ...model, titulo: t });
+    updateChamadaAndConteudo(turmaId, { ...model, titulo: t, conteudo: model.conteudo.trim() });
     alert("Chamada atualizada!");
     if (typeof window !== "undefined") window.location.href = `/turmas/${turmaId}/chamadas`;
   }
@@ -42,8 +42,9 @@ export default function EditarChamadaPage() {
     const text = await file.text();
     const lines = text.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
     let start = 0;
-    if (lines[0]?.toLowerCase().replace(/;/g, ",").includes("nome")) start = 1;
-    const nomes = lines.slice(start).map(l => l.split(/[;,]/)[0] || "");
+    const header = lines[0]?.toLowerCase().replace(/;/g, ",") || "";
+    if (header.includes("nome")) start = 1;
+    const nomes = lines.slice(start).map(l => (l.split(/[;,]/)[0] || ""));
     addAlunosCSV(turmaId, nomes);
     const atual = listAlunos(turmaId);
     setAlunos(atual);

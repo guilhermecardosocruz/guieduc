@@ -1,16 +1,14 @@
 export type Turma = { id: string; nome: string; createdAt: number };
 export type Aluno = { id: string; nome: string; createdAt: number };
+export type Conteudo = { id: string; titulo: string; descricao: string; createdAt: number };
 export type Chamada = {
   id: string;
+  // legados (mantidos para UI)
   titulo: string;
   conteudo: string;
+  // vínculo
+  conteudoId?: string;
   presencas: Record<string, boolean>;
-  createdAt: number;
-};
-export type Conteudo = {
-  id: string;
-  titulo: string;
-  descricao: string;
   createdAt: number;
 };
 
@@ -18,19 +16,21 @@ const KEY_TURMAS = "guieduc:turmas";
 const kAlunos = (tid: string) => `guieduc:alunos:${tid}`;
 const kChamadas = (tid: string) => `guieduc:chamadas:${tid}`;
 const kConteudos = (tid: string) => `guieduc:conteudos:${tid}`;
-
 const isServer = () => typeof window === "undefined";
 
-/* Turmas */
-export function listTurmas(): Turma[] {
-  if (isServer()) return [];
-  try { const raw = localStorage.getItem(KEY_TURMAS); return raw ? JSON.parse(raw) : []; } catch { return []; }
+/* Utils */
+function readJSON<T>(key: string, fallback: T): T {
+  if (isServer()) return fallback;
+  try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) as T : fallback; } catch { return fallback; }
 }
-export function saveTurmas(items: Turma[]) { if (!isServer()) localStorage.setItem(KEY_TURMAS, JSON.stringify(items)); }
+function writeJSON(key: string, val: any) { if (!isServer()) localStorage.setItem(key, JSON.stringify(val)); }
+
+/* Turmas */
+export function listTurmas(): Turma[] { return readJSON<Turma[]>(KEY_TURMAS, []); }
+export function saveTurmas(items: Turma[]) { writeJSON(KEY_TURMAS, items); }
 export function addTurma(nome: string): Turma {
   const nova: Turma = { id: crypto.randomUUID(), nome: nome.trim(), createdAt: Date.now() };
-  const prox = [nova, ...listTurmas()];
-  saveTurmas(prox);
+  saveTurmas([nova, ...listTurmas()]);
   return nova;
 }
 export function removeTurma(id: string) {
@@ -44,56 +44,23 @@ export function removeTurma(id: string) {
 export function getTurma(id: string): Turma | null { return listTurmas().find(t => t.id === id) ?? null; }
 
 /* Alunos */
-export function listAlunos(turmaId: string): Aluno[] {
-  if (isServer()) return [];
-  const raw = localStorage.getItem(kAlunos(turmaId));
-  return raw ? JSON.parse(raw) : [];
-}
-export function saveAlunos(turmaId: string, alunos: Aluno[]) { if (!isServer()) localStorage.setItem(kAlunos(turmaId), JSON.stringify(alunos)); }
+export function listAlunos(turmaId: string): Aluno[] { return readJSON<Aluno[]>(kAlunos(turmaId), []); }
+export function saveAlunos(turmaId: string, alunos: Aluno[]) { writeJSON(kAlunos(turmaId), alunos); }
 export function addAluno(turmaId: string, nome: string): Aluno {
   const aluno: Aluno = { id: crypto.randomUUID(), nome: nome.trim(), createdAt: Date.now() };
-  const prox = [aluno, ...listAlunos(turmaId)];
-  saveAlunos(turmaId, prox);
+  saveAlunos(turmaId, [aluno, ...listAlunos(turmaId)]);
   return aluno;
 }
 export function addAlunosCSV(turmaId: string, nomes: string[]) {
   const atuais = listAlunos(turmaId);
-  const novos: Aluno[] = nomes.map(n => n.trim()).filter(Boolean).map(n => ({ id: crypto.randomUUID(), nome: n, createdAt: Date.now() }));
+  const novos: Aluno[] = nomes.map(n => n.trim()).filter(Boolean)
+    .map(n => ({ id: crypto.randomUUID(), nome: n, createdAt: Date.now() }));
   saveAlunos(turmaId, [...novos, ...atuais]);
 }
 
-/* Chamadas */
-export function listChamadas(turmaId: string): Chamada[] {
-  if (isServer()) return [];
-  const raw = localStorage.getItem(kChamadas(turmaId));
-  return raw ? JSON.parse(raw) : [];
-}
-export function saveChamadas(turmaId: string, chamadas: Chamada[]) { if (!isServer()) localStorage.setItem(kChamadas(turmaId), JSON.stringify(chamadas)); }
-export function addChamada(turmaId: string, c: Omit<Chamada, "id"|"createdAt">): Chamada {
-  const nova: Chamada = { ...c, id: crypto.randomUUID(), createdAt: Date.now() };
-  const prox = [nova, ...listChamadas(turmaId)];
-  saveChamadas(turmaId, prox);
-  return nova;
-}
-export function getChamada(turmaId: string, chamadaId: string): Chamada | null {
-  return listChamadas(turmaId).find(c => c.id === chamadaId) ?? null;
-}
-export function updateChamada(turmaId: string, chamada: Chamada) {
-  const atual = listChamadas(turmaId);
-  const idx = atual.findIndex(c => c.id === chamada.id);
-  if (idx !== -1) { atual[idx] = chamada; saveChamadas(turmaId, atual); }
-}
-export function removeChamada(turmaId: string, chamadaId: string) {
-  saveChamadas(turmaId, listChamadas(turmaId).filter(c => c.id !== chamadaId));
-}
-
 /* Conteúdos */
-export function listConteudos(turmaId: string): Conteudo[] {
-  if (isServer()) return [];
-  const raw = localStorage.getItem(kConteudos(turmaId));
-  return raw ? JSON.parse(raw) : [];
-}
-export function saveConteudos(turmaId: string, items: Conteudo[]) { if (!isServer()) localStorage.setItem(kConteudos(turmaId), JSON.stringify(items)); }
+export function listConteudos(turmaId: string): Conteudo[] { return readJSON<Conteudo[]>(kConteudos(turmaId), []); }
+export function saveConteudos(turmaId: string, items: Conteudo[]) { writeJSON(kConteudos(turmaId), items); }
 export function addConteudo(turmaId: string, c: Omit<Conteudo, "id"|"createdAt">): Conteudo {
   const novo: Conteudo = { ...c, id: crypto.randomUUID(), createdAt: Date.now() };
   saveConteudos(turmaId, [novo, ...listConteudos(turmaId)]);
@@ -115,6 +82,84 @@ export function updateConteudo(turmaId: string, conteudo: Conteudo) {
   const idx = arr.findIndex(c => c.id === conteudo.id);
   if (idx !== -1) { arr[idx] = conteudo; saveConteudos(turmaId, arr); }
 }
-export function removeConteudo(turmaId: string, conteudoId: string) {
-  saveConteudos(turmaId, listConteudos(turmaId).filter(c => c.id !== conteudoId));
+/* Atualiza conteúdo e propaga para chamadas vinculadas */
+export function updateConteudoAndChamadas(turmaId: string, conteudo: Conteudo) {
+  updateConteudo(turmaId, conteudo);
+  const ch = listChamadas(turmaId).map(c =>
+    c.conteudoId === conteudo.id ? { ...c, titulo: conteudo.titulo, conteudo: conteudo.descricao } : c
+  );
+  saveChamadas(turmaId, ch);
+}
+
+/* Chamadas com migração para conteudoId */
+export function listChamadas(turmaId: string): Chamada[] {
+  const arr = readJSON<Chamada[]>(kChamadas(turmaId), []);
+  let changed = false;
+  const conteudos = listConteudos(turmaId);
+  const byKey = new Map<string, Conteudo>();
+  for (const c of conteudos) byKey.set(`${c.titulo}|${c.descricao}`, c);
+
+  for (const ch of arr) {
+    if (!ch.conteudoId) {
+      const key = `${(ch.titulo||"").trim()}|${(ch.conteudo||"").trim()}`;
+      let target = byKey.get(key);
+      if (!target) {
+        target = addConteudo(turmaId, { titulo: ch.titulo || "Sem título", descricao: ch.conteudo || "" });
+        byKey.set(key, target);
+      }
+      ch.conteudoId = target.id;
+      ch.titulo = target.titulo;
+      ch.conteudo = target.descricao;
+      changed = true;
+    }
+  }
+  if (changed) saveChamadas(turmaId, arr);
+  return arr;
+}
+export function saveChamadas(turmaId: string, chamadas: Chamada[]) { writeJSON(kChamadas(turmaId), chamadas); }
+
+/* Criar chamada já vinculando ao conteúdo */
+export function addChamadaWithConteudo(
+  turmaId: string,
+  data: { titulo: string; conteudo: string; presencas: Record<string, boolean> }
+): Chamada {
+  const titulo = data.titulo.trim();
+  const descricao = data.conteudo.trim();
+  let conteudo = listConteudos(turmaId).find(c => c.titulo === titulo && c.descricao === descricao);
+  if (!conteudo) conteudo = addConteudo(turmaId, { titulo, descricao });
+
+  const nova: Chamada = {
+    id: crypto.randomUUID(),
+    titulo, conteudo: descricao,
+    conteudoId: conteudo.id,
+    presencas: data.presencas,
+    createdAt: Date.now()
+  };
+  saveChamadas(turmaId, [nova, ...listChamadas(turmaId)]);
+  return nova;
+}
+export function getChamada(turmaId: string, chamadaId: string): Chamada | null {
+  return listChamadas(turmaId).find(c => c.id === chamadaId) ?? null;
+}
+/* Atualizar chamada e propagar no conteúdo */
+export function updateChamadaAndConteudo(turmaId: string, ch: Chamada) {
+  if (ch.conteudoId) {
+    const atual = getConteudo(turmaId, ch.conteudoId);
+    if (atual) {
+      updateConteudoAndChamadas(turmaId, { ...atual, titulo: ch.titulo.trim(), descricao: ch.conteudo.trim() });
+    } else {
+      const novo = addConteudo(turmaId, { titulo: ch.titulo.trim(), descricao: ch.conteudo.trim() });
+      ch.conteudoId = novo.id;
+    }
+  } else {
+    const novo = addConteudo(turmaId, { titulo: ch.titulo.trim(), descricao: ch.conteudo.trim() });
+    ch.conteudoId = novo.id;
+  }
+  const all = listChamadas(turmaId);
+  const idx = all.findIndex(x => x.id === ch.id);
+  if (idx !== -1) all[idx] = ch;
+  saveChamadas(turmaId, all);
+}
+export function removeChamada(turmaId: string, chamadaId: string) {
+  saveChamadas(turmaId, listChamadas(turmaId).filter(c => c.id !== chamadaId));
 }

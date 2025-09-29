@@ -2,13 +2,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
-  listAlunos, addAluno, addAlunosCSV, addChamada,
+  listAlunos, addAluno, addAlunosCSV, addChamadaWithConteudo,
   type Aluno
 } from "@/lib/storage";
 
 export default function NovaChamadaPage() {
   const { id: turmaId } = useParams<{ id: string }>();
-
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [titulo, setTitulo] = useState("");
   const [conteudo, setConteudo] = useState("");
@@ -56,7 +55,7 @@ export default function NovaChamadaPage() {
   function onSalvarChamada() {
     const t = titulo.trim();
     if (!t) return alert("Informe o nome da aula.");
-    addChamada(turmaId, { titulo: t, conteudo: conteudo.trim(), presencas });
+    addChamadaWithConteudo(turmaId, { titulo: t, conteudo: conteudo.trim(), presencas });
     alert("Chamada salva!");
     if (typeof window !== "undefined") window.location.href = `/turmas/${turmaId}/chamadas`;
   }
