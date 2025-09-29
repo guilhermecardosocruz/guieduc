@@ -87,3 +87,16 @@ export function addChamada(
   saveChamadas(turmaId, prox);
   return nova;
 }
+export function getChamada(turmaId: string, chamadaId: string): Chamada | null {
+  return listChamadas(turmaId).find(c => c.id === chamadaId) ?? null;
+}
+export function updateChamada(turmaId: string, chamada: Chamada) {
+  const atual = listChamadas(turmaId);
+  const idx = atual.findIndex(c => c.id === chamada.id);
+  if (idx === -1) return;
+  atual[idx] = chamada;
+  saveChamadas(turmaId, atual);
+}
+export function removeChamada(turmaId: string, chamadaId: string) {
+  saveChamadas(turmaId, listChamadas(turmaId).filter(c => c.id !== chamadaId));
+}
