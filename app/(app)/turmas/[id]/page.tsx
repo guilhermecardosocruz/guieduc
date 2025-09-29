@@ -9,9 +9,8 @@ export default function TurmaIndexPage() {
   return (
     <div>
       <div className="flex gap-2">
-        {/* ambas em nova aba/página */}
-        <TabBtn href={`${base}/chamadas`} active newTab>Chamadas</TabBtn>
-        <TabBtn href={`${base}/conteudos`} active={false} newTab>Conteúdos</TabBtn>
+        <TabBtn href={`${base}/chamadas`} active>Chamadas</TabBtn>
+        <TabBtn href={`${base}/conteudos`} active={false}>Conteúdos</TabBtn>
       </div>
     </div>
   );

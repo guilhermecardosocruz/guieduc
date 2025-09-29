@@ -1,11 +1,10 @@
 "use client";
-import Link from "next/link";
 
 export default function TabBtn({
   href,
   active,
   children,
-  newTab = false, // default: mesma aba
+  newTab = false,
 }: {
   href: string;
   active: boolean;
@@ -17,14 +16,13 @@ export default function TabBtn({
     ? "bg-[color:var(--color-secondary)] text-white hover:opacity-90"
     : "border border-[color:var(--color-secondary)] text-[color:var(--color-secondary)] hover:bg-blue-50";
   return (
-    <Link
+    <a
       href={href}
       className={`${base} ${style}`}
-      target={newTab ? "_blank" : undefined}
+      target={newTab ? "_blank" : "_self"}
       rel={newTab ? "noreferrer" : undefined}
-      prefetch={false}
     >
       {children}
-    </Link>
+    </a>
   );
 }
