@@ -8,8 +8,18 @@ export default function TurmaLayout({ children }: { children: React.ReactNode })
   const base = `/turmas/${id}`;
   const turma = typeof window !== "undefined" ? getTurma(id) : null;
 
-  const isTurmaRoot = pathname === base || pathname === `${base}/`;
-  const backHref = isTurmaRoot ? "/dashboard" : base;
+  // Regras de back:
+  // - raiz da turma -> /dashboard
+  // - /turmas/[id]/chamadas -> /turmas/[id]
+  // - /turmas/[id]/chamadas/* (nova, [chamadaId]) -> /turmas/[id]/chamadas
+  // - /turmas/[id]/conteudos* -> /turmas/[id]
+  let backHref = "/dashboard";
+  if (pathname && pathname !== base && pathname !== `${base}/`) {
+    if (pathname === `${base}/chamadas`) backHref = base;
+    else if (pathname.startsWith(`${base}/chamadas/`)) backHref = `${base}/chamadas`;
+    else if (pathname.startsWith(`${base}/conteudos`)) backHref = base;
+    else backHref = base;
+  }
 
   return (
     <div className="min-h-dvh flex flex-col">
