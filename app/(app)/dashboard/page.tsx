@@ -1,6 +1,8 @@
 "use client";
 import { useRouter } from "next/navigation";
 import Brand from "@/components/Brand";
+import NovaTurmaForm from "@/components/NovaTurmaForm";
+import TurmasGrid from "@/components/TurmasGrid";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -16,12 +18,10 @@ export default function DashboardPage() {
       <main className="flex-1">
         <div className="mx-auto max-w-6xl px-6 py-10">
           <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
-          <p className="text-gray-600">Você está logado(a). Base pronta para evoluir (turmas, aulas, chamadas...).</p>
-          <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="rounded-3xl border border-gray-100 p-6 bg-white">Card 1</div>
-            <div className="rounded-3xl border border-gray-100 p-6 bg-white">Card 2</div>
-            <div className="rounded-3xl border border-gray-100 p-6 bg-white">Card 3</div>
-          </div>
+          <p className="text-gray-600 mb-6">Gerencie suas turmas. As turmas criadas aparecem como cards clicáveis.</p>
+
+          <NovaTurmaForm />
+          <TurmasGrid />
         </div>
       </main>
       <footer className="border-t border-gray-100 bg-white">
