@@ -2,8 +2,8 @@ export type Turma = { id: string; nome: string; createdAt: number };
 export type Aluno = { id: string; nome: string; createdAt: number };
 export type Chamada = {
   id: string;
-  dataISO: string;     // yyyy-mm-dd
-  conteudo: string;    // texto livre
+  titulo: string;      // nome da aula
+  conteudo: string;    // descrição/conteúdo
   presencas: Record<string, boolean>; // alunoId -> presente?
   createdAt: number;
 };
@@ -34,7 +34,6 @@ export function addTurma(nome: string): Turma {
 }
 export function removeTurma(id: string) {
   saveTurmas(listTurmas().filter(t => t.id !== id));
-  // limpa dados vinculados
   if (!isServer()) {
     localStorage.removeItem(kAlunos(id));
     localStorage.removeItem(kChamadas(id));
@@ -79,7 +78,10 @@ export function saveChamadas(turmaId: string, chamadas: Chamada[]) {
   if (isServer()) return;
   localStorage.setItem(kChamadas(turmaId), JSON.stringify(chamadas));
 }
-export function addChamada(turmaId: string, c: Omit<Chamada, "id"|"createdAt">): Chamada {
+export function addChamada(
+  turmaId: string,
+  c: Omit<Chamada, "id"|"createdAt">
+): Chamada {
   const nova: Chamada = { ...c, id: crypto.randomUUID(), createdAt: Date.now() };
   const prox = [nova, ...listChamadas(turmaId)];
   saveChamadas(turmaId, prox);

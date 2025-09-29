@@ -16,8 +16,7 @@ export default function ChamadasPage() {
   const [editing, setEditing] = useState(false);
 
   // campos da chamada
-  const today = useMemo(() => new Date().toISOString().slice(0,10), []);
-  const [dataISO, setDataISO] = useState(today);
+  const [titulo, setTitulo] = useState("");
   const [conteudo, setConteudo] = useState("");
   const [presencas, setPresencas] = useState<Record<string, boolean>>({});
   const fileRef = useRef<HTMLInputElement>(null);
@@ -64,9 +63,12 @@ export default function ChamadasPage() {
   }
 
   function onSalvarChamada() {
-    if (!dataISO) return alert("Informe o dia da chamada.");
-    const payload = { dataISO, conteudo: conteudo.trim(), presencas };
+    const cleanTitulo = titulo.trim();
+    const cleanConteudo = conteudo.trim();
+    if (!cleanTitulo) return alert("Informe o nome da aula.");
+    const payload = { titulo: cleanTitulo, conteudo: cleanConteudo, presencas };
     addChamada(turmaId, payload);
+    setTitulo("");
     setConteudo("");
     alert("Chamada salva!");
   }
@@ -75,62 +77,36 @@ export default function ChamadasPage() {
 
   return (
     <div>
-      {/* Botões azuis maiores */}
+      {/* Botões azuis maiores (navegação Chamadas/Conteúdos) */}
       <div className="flex gap-2">
         <TabBtn href={`${base}/chamadas`} active>Chamadas</TabBtn>
         <TabBtn href={`${base}/conteudos`} active={false}>Conteúdos</TabBtn>
       </div>
 
-      {/* Toolbar principal */}
-      <div className="mt-6 flex flex-wrap gap-2">
+      {/* Botão principal para abrir o editor */}
+      <div className="mt-6">
         <button onClick={openEditor} className="btn-primary">Adicionar chamada</button>
-
-        <button
-          onClick={onAddAluno}
-          className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border border-[color:var(--color-secondary)] text-[color:var(--color-secondary)] hover:bg-blue-50"
-        >
-          Adicionar aluno
-        </button>
-
-        <label className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border cursor-pointer hover:bg-gray-50">
-          Importar alunos (CSV)
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv,text/csv"
-            className="hidden"
-            onChange={(e)=>{ const f=e.target.files?.[0]; if (f) onImportCSV(f); }}
-          />
-        </label>
-
-        <a
-          href="/templates/modelo-alunos.csv"
-          className="underline text-sm self-center"
-          target="_blank"
-          rel="noreferrer"
-        >
-          planilha padrão
-        </a>
       </div>
 
       {/* Editor da chamada */}
       {editing && (
         <div className="mt-6 rounded-2xl border border-gray-100 bg-white p-4">
+          {/* Campos: Nome da aula + Conteúdo */}
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm mb-1">Dia</label>
+              <label className="block text-sm mb-1">Nome da aula</label>
               <input
-                type="date"
                 className="input"
-                value={dataISO}
-                onChange={(e)=>setDataISO(e.target.value)}
+                placeholder="Ex.: Frações — revisão"
+                value={titulo}
+                onChange={(e)=>setTitulo(e.target.value)}
               />
             </div>
             <div>
               <label className="block text-sm mb-1">Conteúdo</label>
               <input
                 className="input"
-                placeholder="Ex.: Frações (matemática), leitura capítulo 3..."
+                placeholder="Ex.: Frações próprias e impróprias; exercícios 1–10"
                 value={conteudo}
                 onChange={(e)=>setConteudo(e.target.value)}
               />
@@ -161,9 +137,39 @@ export default function ChamadasPage() {
             )}
           </div>
 
-          {/* Ações do editor */}
-          <div className="mt-4 flex flex-wrap gap-2">
+          {/* Ações abaixo da lista (na ordem solicitada) */}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             <button onClick={onSalvarChamada} className="btn-primary">Salvar chamada</button>
+
+            <button
+              onClick={onAddAluno}
+              className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border border-[color:var(--color-secondary)] text-[color:var(--color-secondary)] hover:bg-blue-50"
+            >
+              Adicionar aluno
+            </button>
+
+            <label className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border cursor-pointer hover:bg-gray-50">
+              Adicionar alunos (CSV)
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e)=>{ const f=e.target.files?.[0]; if (f) onImportCSV(f); }}
+              />
+            </label>
+
+            <a
+              href="/templates/modelo-alunos.csv"
+              className="underline text-sm"
+              target="_blank"
+              rel="noreferrer"
+            >
+              planilha padrão
+            </a>
+
+            <div className="grow" />
+
             <button
               onClick={()=>setEditing(false)}
               className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border hover:bg-gray-50"
