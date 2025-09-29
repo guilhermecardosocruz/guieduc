@@ -5,7 +5,7 @@ export default function TabBtn({
   href,
   active,
   children,
-  newTab = false,
+  newTab = false, // default: mesma aba
 }: {
   href: string;
   active: boolean;

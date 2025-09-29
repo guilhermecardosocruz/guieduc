@@ -10,10 +10,9 @@ export default function TurmaIndexPage() {
 
   return (
     <div>
-      {/* Botões principais da turma */}
+      {/* (opcional) nome da turma no topo já é exibido pelo layout */}
       <div className="flex gap-2">
-        {/* Chamadas abre em NOVA ABA */}
-        <TabBtn href={`${base}/chamadas`} active newTab>Chamadas</TabBtn>
+        <TabBtn href={`${base}/chamadas`} active>Chamadas</TabBtn>
         <TabBtn href={`${base}/conteudos`} active={false}>Conteúdos</TabBtn>
       </div>
     </div>
