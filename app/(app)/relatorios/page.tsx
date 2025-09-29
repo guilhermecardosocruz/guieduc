@@ -1,4 +1,6 @@
 "use client";
+export const dynamic = "force-dynamic";
+
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { listTurmas, type Turma } from "@/lib/storage";
@@ -15,7 +17,6 @@ export default function RelatoriosGerarPage() {
   useEffect(() => {
     const all = listTurmas();
     setTurmas(all);
-    // pré-seleção: querystring ?turma=<id> ou primeira turma
     if (turmaParam && all.find(t => t.id === turmaParam)) {
       setTurmaId(turmaParam);
     } else if (all[0]) {

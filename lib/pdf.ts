@@ -1,3 +1,4 @@
+"use client";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { computeReport, type PeriodKey, type AulaReport, type RankingItem } from "@/lib/report";
@@ -8,6 +9,7 @@ function formatDate(d: Date) {
 }
 
 export function gerarRelatorioPDF(turmaId: string, period: PeriodKey) {
+  if (typeof window === "undefined") return; // guarda extra
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const turma = getTurma(turmaId);
   const data = computeReport(turmaId, period);
@@ -22,7 +24,7 @@ export function gerarRelatorioPDF(turmaId: string, period: PeriodKey) {
   doc.text(`Período: ${formatDate(inicio)} a ${formatDate(fim)} (${period})`, 40, 78);
   doc.text(`Resumo: ${data.totalAulas} aula(s), ${data.totalAlunos} aluno(s)`, 40, 96);
 
-  // Tabela 1: Presença por aula
+  // Tabela 1
   autoTable(doc, {
     startY: 120,
     head: [["Data", "Aula", "Presentes", "% Presença"]],
@@ -37,7 +39,7 @@ export function gerarRelatorioPDF(turmaId: string, period: PeriodKey) {
     theme: "striped",
   });
 
-  // Tabela 2: Ranking ausentes
+  // Tabela 2
   const afterFirst = (doc as any).lastAutoTable?.finalY || 120;
   autoTable(doc, {
     startY: afterFirst + 20,
