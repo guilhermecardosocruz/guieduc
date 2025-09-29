@@ -6,12 +6,14 @@ import { getTurma } from "@/lib/storage";
 export default function TurmaLayout({ children }: { children: React.ReactNode }) {
   const { id } = useParams<{ id: string }>();
   const turma = typeof window !== "undefined" ? getTurma(id) : null;
+  const base = `/turmas/${id}`;
 
   return (
     <div className="min-h-dvh flex flex-col">
       <header className="w-full border-b border-gray-100 bg-white">
         <div className="mx-auto max-w-6xl px-6 py-4">
-          <Link href="/dashboard" className="btn-primary">Voltar</Link>
+          {/* Voltar para a página da turma (não mais para o dashboard) */}
+          <Link href={base} className="btn-primary">Voltar</Link>
         </div>
       </header>
 

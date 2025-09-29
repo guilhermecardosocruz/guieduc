@@ -9,12 +9,15 @@ export default function ChamadasHomePage() {
   const base = `/turmas/${id}`;
   const [chamadas, setChamadas] = useState<Chamada[]>([]);
 
-  useEffect(() => {
-    setChamadas(listChamadas(id));
-  }, [id]);
+  useEffect(() => { setChamadas(listChamadas(id)); }, [id]);
 
   return (
     <div>
+      {/* atalho adicional para voltar */}
+      <div className="mb-4">
+        <Link href={base} className="underline text-sm">Voltar para a turma</Link>
+      </div>
+
       <div className="flex gap-2">
         <Link href={`${base}/chamadas/nova`} className="btn-primary">Adicionar chamadas</Link>
       </div>
