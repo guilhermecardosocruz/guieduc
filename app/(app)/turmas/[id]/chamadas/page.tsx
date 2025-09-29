@@ -13,9 +13,8 @@ export default function ChamadasHomePage() {
 
   return (
     <div>
-      {/* atalho adicional para voltar */}
       <div className="mb-4">
-        <Link href={base} className="underline text-sm">Voltar para a turma</Link>
+        <Link href={base} className="underline text-sm" data-testid="voltar-atalho">Voltar para a turma</Link>
       </div>
 
       <div className="flex gap-2">
