@@ -24,6 +24,13 @@ export default function RegisterPage() {
         body: JSON.stringify({ name, email, password })
       });
       if (!res.ok) throw new Error("Não foi possível criar a conta");
+
+      // mock: salvar usuário local
+      const user = { name: name.trim() || "Usuário", email };
+      if (typeof window !== "undefined") {
+        localStorage.setItem("guieduc:user", JSON.stringify(user));
+      }
+
       router.push("/dashboard");
     } catch (e:any) {
       setErr(e.message || "Erro ao cadastrar");

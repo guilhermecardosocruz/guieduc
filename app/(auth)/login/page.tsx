@@ -12,6 +12,17 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
+  function inferNameFromEmail(e: string) {
+    const part = e.split("@")[0] || "";
+    if (!part) return "Usuário";
+    // capitaliza primeiras letras
+    return part
+      .replace(/[._-]+/g, " ")
+      .split(" ")
+      .map(w => w ? (w[0].toUpperCase() + w.slice(1)) : w)
+      .join(" ");
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
@@ -23,6 +34,13 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password })
       });
       if (!res.ok) throw new Error("Credenciais inválidas");
+
+      // mock: salvar usuário local
+      const user = { name: inferNameFromEmail(email), email };
+      if (typeof window !== "undefined") {
+        localStorage.setItem("guieduc:user", JSON.stringify(user));
+      }
+
       router.push("/dashboard");
     } catch (e:any) {
       setErr(e.message || "Erro ao entrar");

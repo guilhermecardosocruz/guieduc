@@ -2,28 +2,31 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Brand from "@/components/Brand";
-import NovaTurmaForm from "@/components/NovaTurmaForm";
-import TurmasGrid from "@/components/TurmasGrid";
-import { Turma, listTurmas, addTurma, removeTurma } from "@/lib/storage";
+
+type User = { name: string; email: string };
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [turmas, setTurmas] = useState<Turma[]>([]);
+  const [user, setUser] = useState<User | null>(null);
 
-  // carrega ao montar
-  useEffect(() => { setTurmas(listTurmas()); }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem("guieduc:user");
+      setUser(raw ? JSON.parse(raw) as User : null);
+    } catch {
+      setUser(null);
+    }
+  }, []);
 
-  async function handleAdd(nome: string) {
-    const nova = addTurma(nome);        // persiste
-    setTurmas(prev => [nova, ...prev]); // atualiza imediatamente
+  function fakeLogout() {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("guieduc:user");
+    }
+    router.push("/login");
   }
 
-  function handleDelete(id: string) {
-    setTurmas(prev => prev.filter(t => t.id !== id)); // otimista
-    removeTurma(id);                                   // persiste
-  }
-
-  function fakeLogout() { router.push("/login"); }
+  const nome = user?.name || "Usuário";
 
   return (
     <div className="min-h-dvh flex flex-col">
@@ -33,17 +36,24 @@ export default function DashboardPage() {
           <button onClick={fakeLogout} className="btn-primary">Sair</button>
         </div>
       </header>
+
       <main className="flex-1">
         <div className="mx-auto max-w-6xl px-6 py-10">
-          <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
-          <p className="text-gray-600 mb-6">Gerencie suas turmas. As turmas criadas aparecem como cards clicáveis.</p>
+          <h1 className="text-3xl font-bold mb-2">Olá, {nome}</h1>
+          <p className="text-gray-600">Você está logado(a). Base pronta para evoluir (turmas, aulas, chamadas...).</p>
 
-          <NovaTurmaForm onAdd={handleAdd} />
-          <TurmasGrid turmas={turmas} onDelete={handleDelete} />
+          <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="rounded-3xl border border-gray-100 p-6 bg-white">Card 1</div>
+            <div className="rounded-3xl border border-gray-100 p-6 bg-white">Card 2</div>
+            <div className="rounded-3xl border border-gray-100 p-6 bg-white">Card 3</div>
+          </div>
         </div>
       </main>
+
       <footer className="border-t border-gray-100 bg-white">
-        <div className="mx-auto max-w-6xl px-6 py-6 text-sm text-gray-500">© GUIEDUC — multiplataforma (Web / Android / iOS)</div>
+        <div className="mx-auto max-w-6xl px-6 py-6 text-sm text-gray-500">
+          © GUIEDUC — multiplataforma (Web / Android / iOS)
+        </div>
       </footer>
     </div>
   );
