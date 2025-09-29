@@ -1,12 +1,30 @@
 "use client";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Brand from "@/components/Brand";
 import NovaTurmaForm from "@/components/NovaTurmaForm";
 import TurmasGrid from "@/components/TurmasGrid";
+import { Turma, listTurmas, addTurma, removeTurma } from "@/lib/storage";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const [turmas, setTurmas] = useState<Turma[]>([]);
+
+  // carrega ao montar
+  useEffect(() => { setTurmas(listTurmas()); }, []);
+
+  async function handleAdd(nome: string) {
+    const nova = addTurma(nome);        // persiste
+    setTurmas(prev => [nova, ...prev]); // atualiza imediatamente
+  }
+
+  function handleDelete(id: string) {
+    setTurmas(prev => prev.filter(t => t.id !== id)); // otimista
+    removeTurma(id);                                   // persiste
+  }
+
   function fakeLogout() { router.push("/login"); }
+
   return (
     <div className="min-h-dvh flex flex-col">
       <header className="w-full border-b border-gray-100 bg-white">
@@ -20,8 +38,8 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
           <p className="text-gray-600 mb-6">Gerencie suas turmas. As turmas criadas aparecem como cards clicáveis.</p>
 
-          <NovaTurmaForm />
-          <TurmasGrid />
+          <NovaTurmaForm onAdd={handleAdd} />
+          <TurmasGrid turmas={turmas} onDelete={handleDelete} />
         </div>
       </main>
       <footer className="border-t border-gray-100 bg-white">

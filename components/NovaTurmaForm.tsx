@@ -1,15 +1,12 @@
 "use client";
 import { useState } from "react";
-import { addTurma } from "@/lib/storage";
-import { useRouter } from "next/navigation";
 
-export default function NovaTurmaForm() {
+export default function NovaTurmaForm({ onAdd }: { onAdd: (nome: string) => Promise<void> | void }) {
   const [nome, setNome] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
     const clean = nome.trim();
@@ -19,9 +16,10 @@ export default function NovaTurmaForm() {
     }
     setLoading(true);
     try {
-      addTurma(clean);
+      await onAdd(clean);
       setNome("");
-      router.refresh();
+    } catch (e) {
+      setErr("Não foi possível adicionar a turma.");
     } finally {
       setLoading(false);
     }
@@ -32,7 +30,12 @@ export default function NovaTurmaForm() {
       <h3 className="text-lg font-semibold mb-2">Nova turma</h3>
       <p className="text-sm text-gray-500 mb-4">Crie uma turma para organizar seus alunos/aulas.</p>
       <div className="flex gap-2">
-        <input className="input" placeholder="Ex.: 3º Ano A (manhã)" value={nome} onChange={(e)=>setNome(e.target.value)} />
+        <input
+          className="input"
+          placeholder="Ex.: 3º Ano A (manhã)"
+          value={nome}
+          onChange={(e)=>setNome(e.target.value)}
+        />
         <button className="btn-primary whitespace-nowrap" disabled={loading}>
           {loading ? "Adicionando..." : "Adicionar"}
         </button>
