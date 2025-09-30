@@ -179,16 +179,6 @@ export function updateAlunoName(turmaId: string, alunoId: string, novoNome: stri
 }
 
 // === GUIEDUC: remover aluno e limpar presenças ===
-export function removeAluno(turmaId: string, alunoId: string) {
-  if (typeof window === "undefined") return false;
-
-  // remove do cadastro de alunos
-  {
-    const key = `guieduc:alunos:${turmaId}`;
-    const arr: Aluno[] = JSON.parse(localStorage.getItem(key) || "[]");
-    const next = arr.filter(a => a.id !== alunoId);
-    localStorage.setItem(key, JSON.stringify(next));
-  }
 
   // limpar das presenças de todas as chamadas
   {
@@ -205,16 +195,6 @@ export function removeAluno(turmaId: string, alunoId: string) {
 }
 
 // === GUIEDUC: remover aluno e limpar presenças ===
-export function removeAluno(turmaId: string, alunoId: string) {
-  if (typeof window === "undefined") return false;
-
-  // remove do cadastro de alunos
-  {
-    const key = `guieduc:alunos:${turmaId}`;
-    const arr: Aluno[] = JSON.parse(localStorage.getItem(key) || "[]");
-    const next = arr.filter(a => a.id !== alunoId);
-    localStorage.setItem(key, JSON.stringify(next));
-  }
 
   // limpar das presenças de todas as chamadas
   {
@@ -227,5 +207,27 @@ export function removeAluno(turmaId: string, alunoId: string) {
     }
     localStorage.setItem(keyC, JSON.stringify(chamadas));
   }
+  return true;
+}
+export function removeAluno(turmaId: string, alunoId: string) {
+  if (typeof window === "undefined") return false;
+
+  // 2.1) Remover do cadastro de alunos
+  const keyA = `guieduc:alunos:${turmaId}`;
+  const arrRaw = localStorage.getItem(keyA);
+  const arr = arrRaw ? (JSON.parse(arrRaw) as Aluno[]) : [];
+  const next = arr.filter((a) => a.id !== alunoId);
+  localStorage.setItem(keyA, JSON.stringify(next));
+
+  // 2.2) Limpar presenças do aluno em todas as chamadas da turma
+  const keyC = `guieduc:chamadas:${turmaId}`;
+  const cRaw = localStorage.getItem(keyC);
+  const chamadas = cRaw ? (JSON.parse(cRaw) as Chamada[]) : [];
+  for (const c of chamadas) {
+    if (c && c.presencas && alunoId in c.presencas) {
+      delete c.presencas[alunoId];
+    }
+  }
+  localStorage.setItem(keyC, JSON.stringify(chamadas));
   return true;
 }
