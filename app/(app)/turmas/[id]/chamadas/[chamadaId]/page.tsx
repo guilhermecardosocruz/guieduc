@@ -109,9 +109,14 @@ export default function EditarChamadaPage() {
 
       <div className="mt-4">
         <h3 className="text-sm font-semibold mb-2">Lista de alunos ({alunos.length})</h3>
-        <ul className="divide-y">
-          {alunos.map(a => (
-            <li key={a.id} className="flex items-center justify-between py-2 gap-3">
+        <ul className="-mx-4">
+          {alunos.map((a, idx) => (
+            <li
+              key={a.id}
+              className={`flex items-center justify-between py-2 px-4 gap-3 ${
+                idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"
+              }`}
+            >
               <div className="flex-1 min-w-0">
                 <AlunoNameEditor
                   turmaId={turmaId}
