@@ -16,6 +16,16 @@ export default function NovaChamadaPage() {
   const [presencas, setPresencas] = useState<Record<string, boolean>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
+  function refreshAlunosAndPresencas() {
+    const atual = listAlunos(turmaId);
+    setAlunos(atual);
+    setPresencas(prev => {
+      const next: Record<string, boolean> = {};
+      for (const a of atual) next[a.id] = prev[a.id] ?? true;
+      return next;
+    });
+  }
+
   useEffect(() => {
     const arr = listAlunos(turmaId);
     setAlunos(arr);
@@ -28,21 +38,14 @@ export default function NovaChamadaPage() {
     const nome = prompt("Nome do aluno:");
     if (!nome) return;
     const novo = addAluno(turmaId, nome);
-    const atual = listAlunos(turmaId);
-    setAlunos(atual);
+    setAlunos(listAlunos(turmaId));
     setPresencas(prev => ({ ...prev, [novo.id]: true }));
   }
 
   async function onImport(file: File) {
     const nomes = await parseAlunosFile(file);
     addAlunosCSV(turmaId, nomes);
-    const atual = listAlunos(turmaId);
-    setAlunos(atual);
-    setPresencas(prev => {
-      const next = { ...prev };
-      for (const a of atual) if (next[a.id] === undefined) next[a.id] = true;
-      return next;
-    });
+    refreshAlunosAndPresencas();
     if (fileRef.current) fileRef.current.value = "";
     alert(`${nomes.length} aluno(s) importado(s)`);
   }
@@ -85,7 +88,7 @@ export default function NovaChamadaPage() {
                 <AlunoNameEditor
                   turmaId={turmaId}
                   aluno={a}
-                  onSaved={() => setAlunos(listAlunos(turmaId))}
+                  onSaved={refreshAlunosAndPresencas}
                 />
               </div>
               <label className="inline-flex items-center gap-2 text-sm shrink-0">

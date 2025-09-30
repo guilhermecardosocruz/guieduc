@@ -20,6 +20,17 @@ export default function EditarChamadaPage() {
     setModel(getChamada(turmaId, chamadaId));
   }, [turmaId, chamadaId]);
 
+  function refreshAfterAlunoChange() {
+    const atual = listAlunos(turmaId);
+    setAlunos(atual);
+    setModel(prev => {
+      if (!prev) return prev;
+      const pres: Record<string, boolean> = {};
+      for (const a of atual) pres[a.id] = prev.presencas[a.id] ?? true;
+      return { ...prev, presencas: pres };
+    });
+  }
+
   function onToggle(aid: string) {
     if (!model) return;
     setModel({ ...model, presencas: { ...model.presencas, [aid]: !model.presencas[aid] } });
@@ -59,13 +70,8 @@ export default function EditarChamadaPage() {
     const nome = prompt("Nome do aluno:");
     if (!nome) return;
     const novo = addAluno(turmaId, nome);
-    const atual = listAlunos(turmaId);
-    setAlunos(atual);
-    setModel(prev => {
-      if (!prev) return prev;
-      // novo aluno entra já como presente por padrão
-      return { ...prev, presencas: { ...prev.presencas, [novo.id]: true } };
-    });
+    setAlunos(listAlunos(turmaId));
+    setModel(prev => prev ? { ...prev, presencas: { ...prev.presencas, [novo.id]: true } } : prev);
   }
 
   if (!model) {
@@ -110,7 +116,7 @@ export default function EditarChamadaPage() {
                 <AlunoNameEditor
                   turmaId={turmaId}
                   aluno={a}
-                  onSaved={() => setAlunos(listAlunos(turmaId))}
+                  onSaved={refreshAfterAlunoChange}
                 />
               </div>
               <label className="inline-flex items-center gap-2 text-sm shrink-0">

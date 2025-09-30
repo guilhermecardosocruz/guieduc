@@ -177,3 +177,55 @@ export function updateAlunoName(turmaId: string, alunoId: string, novoNome: stri
   localStorage.setItem(key, JSON.stringify(arr));
   return arr[idx];
 }
+
+// === GUIEDUC: remover aluno e limpar presenças ===
+export function removeAluno(turmaId: string, alunoId: string) {
+  if (typeof window === "undefined") return false;
+
+  // remove do cadastro de alunos
+  {
+    const key = `guieduc:alunos:${turmaId}`;
+    const arr: Aluno[] = JSON.parse(localStorage.getItem(key) || "[]");
+    const next = arr.filter(a => a.id !== alunoId);
+    localStorage.setItem(key, JSON.stringify(next));
+  }
+
+  // limpar das presenças de todas as chamadas
+  {
+    const keyC = `guieduc:chamadas:${turmaId}`;
+    const chamadas = JSON.parse(localStorage.getItem(keyC) || "[]") as any[];
+    for (const c of chamadas) {
+      if (c && c.presencas && alunoId in c.presencas) {
+        delete c.presencas[alunoId];
+      }
+    }
+    localStorage.setItem(keyC, JSON.stringify(chamadas));
+  }
+  return true;
+}
+
+// === GUIEDUC: remover aluno e limpar presenças ===
+export function removeAluno(turmaId: string, alunoId: string) {
+  if (typeof window === "undefined") return false;
+
+  // remove do cadastro de alunos
+  {
+    const key = `guieduc:alunos:${turmaId}`;
+    const arr: Aluno[] = JSON.parse(localStorage.getItem(key) || "[]");
+    const next = arr.filter(a => a.id !== alunoId);
+    localStorage.setItem(key, JSON.stringify(next));
+  }
+
+  // limpar das presenças de todas as chamadas
+  {
+    const keyC = `guieduc:chamadas:${turmaId}`;
+    const chamadas = JSON.parse(localStorage.getItem(keyC) || "[]") as any[];
+    for (const c of chamadas) {
+      if (c && c.presencas && alunoId in c.presencas) {
+        delete c.presencas[alunoId];
+      }
+    }
+    localStorage.setItem(keyC, JSON.stringify(chamadas));
+  }
+  return true;
+}
