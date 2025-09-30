@@ -1,3 +1,4 @@
+import SyncProvider from "@/components/SyncProvider";
 import "./../styles/globals.css";
 import type { Metadata, Viewport } from "next";
 
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-dvh bg-white" style={{ backgroundColor: "#fff" }}>
+      <SyncProvider />
         {children}
       </body>
     </html>
