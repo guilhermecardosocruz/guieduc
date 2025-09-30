@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
-  listAlunos, addAlunosCSV,
+  listAlunos, addAlunosCSV, addAluno,
   getChamada, updateChamadaAndConteudo, removeChamada,
   type Aluno, type Chamada
 } from "@/lib/storage";
@@ -55,6 +55,19 @@ export default function EditarChamadaPage() {
     alert(`${nomes.length} aluno(s) importado(s)`);
   }
 
+  function onAddAluno() {
+    const nome = prompt("Nome do aluno:");
+    if (!nome) return;
+    const novo = addAluno(turmaId, nome);
+    const atual = listAlunos(turmaId);
+    setAlunos(atual);
+    setModel(prev => {
+      if (!prev) return prev;
+      // novo aluno entra já como presente por padrão
+      return { ...prev, presencas: { ...prev.presencas, [novo.id]: true } };
+    });
+  }
+
   if (!model) {
     return (
       <div className="rounded-2xl border border-gray-100 bg-white p-4">
@@ -102,9 +115,9 @@ export default function EditarChamadaPage() {
               </div>
               <label className="inline-flex items-center gap-2 text-sm shrink-0">
                 <input
-                    type="checkbox"
-                    checked={!!model.presencas[a.id]}
-                    onChange={()=>onToggle(a.id)}
+                  type="checkbox"
+                  checked={!!model.presencas[a.id]}
+                  onChange={()=>onToggle(a.id)}
                 />
                 Presente
               </label>
@@ -115,6 +128,14 @@ export default function EditarChamadaPage() {
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button onClick={onSave} className="btn-primary">Salvar alterações</button>
+
+        <button
+          onClick={onAddAluno}
+          className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border border-[color:var(--color-secondary)] text-[color:var(--color-secondary)] hover:bg-blue-50"
+        >
+          Adicionar aluno
+        </button>
+
         <label className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border cursor-pointer hover:bg-gray-50">
           Adicionar alunos (CSV/XLSX)
           <input
@@ -125,11 +146,13 @@ export default function EditarChamadaPage() {
             onChange={(e)=>{ const f=e.target.files?.[0]; if (f) onImport(f); }}
           />
         </label>
+
         <div className="flex items-center gap-3 text-sm">
           <a href="/templates/modelo-alunos.csv" className="underline" target="_blank" rel="noreferrer">planilha padrão (CSV)</a>
           <span className="text-gray-300">|</span>
           <a href="/templates/modelo-alunos.xlsx" className="underline" target="_blank" rel="noreferrer">planilha padrão (XLSX)</a>
         </div>
+
         <button
           onClick={onDelete}
           className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border border-red-300 text-red-600 hover:bg-red-50"
