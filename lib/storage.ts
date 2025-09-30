@@ -163,3 +163,108 @@ export function removeChamada(turmaId: string, chamadaId: string) {
   writeJSON(`guieduc:chamadas:${turmaId}`, arr);
   return true;
 }
+
+// ----------------- Conteúdos -----------------
+
+export type Conteudo = {
+  id: string;
+  turmaId: string;
+  titulo: string;      // título curto
+  descricao: string;   // descrição/detalhe
+  createdAt: number;
+};
+
+function listConteudosKey(turmaId: string) {
+  return `guieduc:conteudos:${turmaId}`;
+}
+
+export function listConteudos(turmaId: string): Conteudo[] {
+  return readJSON<Conteudo[]>(listConteudosKey(turmaId), []);
+}
+
+/** Importa conteúdos por planilha/lista. Aceita:
+ *  - string[] -> cada item vira um conteúdo com titulo=item, descricao=""
+ *  - {titulo, descricao?}[] -> usa os campos informados
+ *  Retorna quantidade adicionada.
+ */
+export function addConteudosCSV(
+  turmaId: string,
+  itens: Array<string | { titulo: string; descricao?: string }>
+): number {
+  const arr = listConteudos(turmaId);
+  let count = 0;
+  for (const it of itens) {
+    const titulo = (typeof it === "string" ? it : it.titulo) || "";
+    const descricao = typeof it === "string" ? "" : it.descricao || "";
+    const t = titulo.trim();
+    if (!t) continue;
+    arr.push({ id: uid(), turmaId, titulo: t, descricao: (descricao || "").trim(), createdAt: Date.now() });
+    count++;
+  }
+  writeJSON(listConteudosKey(turmaId), arr);
+  return count;
+}
+
+export function addConteudo(
+  turmaId: string,
+  data: { titulo: string; descricao?: string }
+): Conteudo {
+  const arr = listConteudos(turmaId);
+  const c: Conteudo = {
+    id: uid(),
+    turmaId,
+    titulo: (data.titulo || "").trim(),
+    descricao: (data.descricao || "").trim(),
+    createdAt: Date.now(),
+  };
+  arr.push(c);
+  writeJSON(listConteudosKey(turmaId), arr);
+  return c;
+}
+
+export function getConteudo(turmaId: string, conteudoId: string): Conteudo | null {
+  return listConteudos(turmaId).find(c => c.id === conteudoId) || null;
+}
+
+/** Atualiza o conteúdo e tenta sincronizar chamadas cujo campo `conteudo`
+ *  seja exatamente igual ao texto antigo (título antigo ou descrição antiga).
+ *  Se bater, troca pelo novo (prioriza novo `descricao`, senão `titulo`).
+ */
+export function updateConteudoAndChamadas(
+  turmaId: string,
+  conteudo: Conteudo
+) {
+  // 1) atualizar registro do conteúdo
+  const arr = listConteudos(turmaId);
+  const idx = arr.findIndex(c => c.id === conteudo.id);
+  if (idx < 0) return false;
+  const prev = arr[idx];
+  arr[idx] = {
+    ...prev,
+    titulo: (conteudo.titulo || "").trim(),
+    descricao: (conteudo.descricao || "").trim(),
+  };
+  writeJSON(listConteudosKey(turmaId), arr);
+
+  // 2) sincronizar chamadas (best-effort)
+  const novasChamadas = listChamadas(turmaId);
+  const antigoTitulo = (prev.titulo || "").trim();
+  const antigaDesc   = (prev.descricao || "").trim();
+  const novoTexto    = (arr[idx].descricao || arr[idx].titulo || "").trim();
+
+  if (novoTexto) {
+    let mudouAlguma = false;
+    for (const ch of novasChamadas) {
+      const atual = (ch.conteudo || "").trim();
+      if (atual && (atual === antigoTitulo || atual === antigaDesc)) {
+        ch.conteudo = novoTexto;
+        mudouAlguma = true;
+      }
+    }
+    if (mudouAlguma) {
+      writeJSON(`guieduc:chamadas:${turmaId}`, novasChamadas);
+    }
+  }
+
+  return true;
+}
