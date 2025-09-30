@@ -84,7 +84,7 @@ export default function AlunoNameEditor({
                 className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border border-red-300 text-red-600 hover:bg-red-50"
                 onClick={excluir}
               >
-                Excluir aluno
+                Excluir
               </button>
               <div className="flex gap-2">
                 <button
