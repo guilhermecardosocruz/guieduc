@@ -5,6 +5,7 @@ import {
   listAlunos, addAluno, addAlunosCSV, addChamadaWithConteudo,
   type Aluno
 } from "@/lib/storage";
+import { updateAlunoName } from "@/lib/storage";
 import { parseAlunosFile } from "@/lib/xls";
 
 export default function NovaChamadaPage() {
@@ -27,7 +28,8 @@ export default function NovaChamadaPage() {
     const nome = prompt("Nome do aluno:");
     if (!nome) return;
     const novo = addAluno(turmaId, nome);
-    setAlunos(prev => [novo, ...prev]);
+    const atual = listAlunos(turmaId);
+    setAlunos(atual);
     setPresencas(prev => ({ ...prev, [novo.id]: true }));
   }
 
@@ -47,6 +49,17 @@ export default function NovaChamadaPage() {
 
   function onToggleAluno(aid: string) {
     setPresencas(prev => ({ ...prev, [aid]: !prev[aid] }));
+  }
+
+  function handleAlunoEnter(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      (e.target as HTMLInputElement).blur();
+    }
+  }
+
+  function onRename(aid: string, nome: string) {
+    const ok = updateAlunoName(turmaId, aid, nome);
+    if (ok) setAlunos(listAlunos(turmaId));
   }
 
   function onSalvarChamada() {
@@ -78,9 +91,16 @@ export default function NovaChamadaPage() {
         <h3 className="text-sm font-semibold mb-2">Lista de alunos ({alunos.length})</h3>
         <ul className="divide-y">
           {alunos.map(a => (
-            <li key={a.id} className="flex items-center justify-between py-2">
-              <span className="truncate pr-3">{a.nome}</span>
-              <label className="inline-flex items-center gap-2 text-sm">
+            <li key={a.id} className="flex items-center justify-between py-2 gap-3">
+              <input
+                className="input flex-1"
+                defaultValue={a.nome}
+                onKeyDown={handleAlunoEnter}
+                onBlur={(e)=>onRename(a.id, e.currentTarget.value)}
+                aria-label={`Nome do aluno ${a.nome}`}
+                title="Clique para editar o nome"
+              />
+              <label className="inline-flex items-center gap-2 text-sm shrink-0">
                 <input type="checkbox" checked={!!presencas[a.id]} onChange={()=>onToggleAluno(a.id)} />
                 Presente
               </label>

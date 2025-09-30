@@ -163,3 +163,17 @@ export function updateChamadaAndConteudo(turmaId: string, ch: Chamada) {
 export function removeChamada(turmaId: string, chamadaId: string) {
   saveChamadas(turmaId, listChamadas(turmaId).filter(c => c.id !== chamadaId));
 }
+// === GUIEDUC: atualização de nome de aluno (inline) ===
+export function updateAlunoName(turmaId: string, alunoId: string, novoNome: string) {
+  if (typeof window === "undefined") return null;
+  const key = `guieduc:alunos:${turmaId}`;
+  const raw = localStorage.getItem(key);
+  const arr = raw ? (JSON.parse(raw) as Aluno[]) : [];
+  const idx = arr.findIndex(a => a.id === alunoId);
+  if (idx < 0) return null;
+  const nome = (novoNome || "").trim();
+  if (!nome) return null;
+  arr[idx] = { ...arr[idx], nome };
+  localStorage.setItem(key, JSON.stringify(arr));
+  return arr[idx];
+}
