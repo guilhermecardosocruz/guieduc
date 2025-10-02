@@ -1,125 +1,166 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
-import {
-  listAlunos, addAluno, addAlunosCSV, addChamadaWithConteudo,
-  type Aluno
-} from "@/lib/storage";
-import { parseAlunosFile } from "@/lib/xls";
-import AlunoNameEditor from "@/components/AlunoNameEditor";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+type Aluno = { id: string; nome: string; createdAt: number };
+type Chamada = {
+  id: string;
+  turmaId: string;
+  nome?: string;
+  conteudo?: string;
+  presencas?: Record<string, boolean>;
+  createdAt: number;
+};
+
+function readJSON<T>(k: string, fb: T): T {
+  if (typeof window === "undefined") return fb;
+  try { const raw = localStorage.getItem(k); return raw ? (JSON.parse(raw) as T) : fb; }
+  catch { return fb; }
+}
+function writeJSON<T>(k: string, v: T) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(k, JSON.stringify(v));
+}
+const strip = (s: string) => (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
 
 export default function NovaChamadaPage() {
-  const { id: turmaId } = useParams<{ id: string }>();
-  const [alunos, setAlunos] = useState<Aluno[]>([]);
-  const [titulo, setTitulo] = useState("");
-  const [conteudo, setConteudo] = useState("");
-  const [presencas, setPresencas] = useState<Record<string, boolean>>({});
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const base = `/turmas/${id}`;
   const fileRef = useRef<HTMLInputElement>(null);
 
-  function refreshAlunosAndPresencas() {
-    const atual = listAlunos(turmaId);
-    setAlunos(atual);
-    setPresencas(prev => {
-      const next: Record<string, boolean> = {};
-      for (const a of atual) next[a.id] = prev[a.id] ?? true;
-      return next;
-    });
-  }
+  const [nomeAula, setNomeAula] = useState("");
+  const [alunos, setAlunos] = useState<Aluno[]>([]);
+  const [pres, setPres] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    const arr = listAlunos(turmaId);
-    setAlunos(arr);
-    const init: Record<string, boolean> = {};
-    for (const a of arr) init[a.id] = true;
-    setPresencas(init);
-  }, [turmaId]);
+    const akey = `guieduc:alunos:${id}`;
+    const arrA = readJSON<Aluno[]>(akey, []);
+    setAlunos(arrA);
+  }, [id]);
 
-  function onAddAluno() {
+  const alunosOrdenados = useMemo(
+    () => [...alunos].sort((a,b)=>{
+      const na = strip(a.nome), nb = strip(b.nome);
+      return na<nb ? -1 : na>nb ? 1 : 0;
+    }),
+    [alunos]
+  );
+
+  function togglePresenca(alunoId: string) {
+    setPres(p => ({ ...p, [alunoId]: !p[alunoId] }));
+  }
+
+  function salvarChamada() {
+    if (!nomeAula.trim()) { alert("Defina o nome da aula."); return; }
+    const key = `guieduc:chamadas:${id}`;
+    const arr = readJSON<Chamada[]>(key, []);
+    const nova: Chamada = {
+      id: crypto.randomUUID(),
+      turmaId: String(id),
+      nome: nomeAula.trim(),
+      presencas: pres,
+      createdAt: Date.now()
+    };
+    writeJSON(key, [...arr, nova]);
+    alert("Chamada criada!");
+    router.push(`${base}/chamadas`);
+  }
+
+  function addAlunoManual() {
     const nome = prompt("Nome do aluno:");
     if (!nome) return;
-    const novo = addAluno(turmaId, nome);
-    setAlunos(listAlunos(turmaId));
-    setPresencas(prev => ({ ...prev, [novo.id]: true }));
+    const akey = `guieduc:alunos:${id}`;
+    const cur = readJSON<Aluno[]>(akey, []);
+    const novo: Aluno = { id: crypto.randomUUID(), nome: nome.trim(), createdAt: Date.now() };
+    const next = [...cur, novo].sort((a,b)=> strip(a.nome)<strip(b.nome)?-1:strip(a.nome)>strip(b.nome)?1:0);
+    writeJSON(akey, next);
+    setAlunos(next);
   }
 
-  async function onImport(file: File) {
-    const nomes = await parseAlunosFile(file);
-    addAlunosCSV(turmaId, nomes);
-    refreshAlunosAndPresencas();
-    if (fileRef.current) fileRef.current.value = "";
-    alert(`${nomes.length} aluno(s) importado(s)`);
-  }
-
-  function onToggleAluno(aid: string) {
-    setPresencas(prev => ({ ...prev, [aid]: !prev[aid] }));
-  }
-
-  function onSalvarChamada() {
-    const t = titulo.trim();
-    if (!t) return alert("Informe o nome da aula.");
-    addChamadaWithConteudo(turmaId, { titulo: t, conteudo: conteudo.trim(), presencas });
-    alert("Chamada salva!");
-    if (typeof window !== "undefined") window.location.href = `/turmas/${turmaId}/chamadas`;
+  function importarPlanilha() { fileRef.current?.click(); }
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]; if (!f) return;
+    const akey = `guieduc:alunos:${id}`;
+    const cur = readJSON<Aluno[]>(akey, []);
+    try {
+      let nomes: string[] = [];
+      if (/\.xlsx$/i.test(f.name)) {
+        const XLSX = await import("xlsx");
+        const buf = await f.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const json: any[] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        nomes = (json||[]).map(r => String(r?.[0] ?? "").trim()).filter(Boolean);
+      } else {
+        const text = await f.text();
+        nomes = text.split(/\r?\n/).map(l => l.split(/[;,]/)[0]?.trim() || "").filter(Boolean);
+      }
+      const novos: Aluno[] = nomes.map(n => ({ id: crypto.randomUUID(), nome: n, createdAt: Date.now() }));
+      const next = [...cur, ...novos].sort((a,b)=> strip(a.nome)<strip(b.nome)?-1:strip(a.nome)>strip(b.nome)?1:0);
+      writeJSON(akey, next);
+      setAlunos(next);
+      alert(`Importados ${novos.length} aluno(s).`);
+    } catch (err: any) {
+      alert(`Falha ao importar: ${err?.message || err}`);
+    } finally {
+      e.target.value = "";
+    }
   }
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4">
-      <div className="mb-4">
-        <a href={`/turmas/${turmaId}/chamadas`} className="underline text-sm">Voltar para Chamadas</a>
-      </div>
+    <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-6">
+      <label className="block text-sm mb-1">Nome da aula</label>
+      <input
+        className="input mb-4"
+        value={nomeAula}
+        onChange={(e)=>setNomeAula(e.target.value)}
+        placeholder="Ex.: Frações — revisão"
+      />
 
-      <div className="grid sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm mb-1">Nome da aula</label>
-          <input className="input" value={titulo} onChange={(e)=>setTitulo(e.target.value)} placeholder="Ex.: Frações — revisão" />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Conteúdo</label>
-          <input className="input" value={conteudo} onChange={(e)=>setConteudo(e.target.value)} placeholder="Ex.: Frações próprias e impróprias..." />
-        </div>
+      <p className="text-sm font-semibold mb-2">Lista de alunos ({alunosOrdenados.length})</p>
+
+      <ul className="w-full overflow-hidden rounded-2xl border border-blue-100">
+        {alunosOrdenados.map((a, idx) => (
+          <li
+            key={a.id}
+            className={`w-full flex items-center justify-between px-4 py-3 ${idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"}`}
+          >
+            <span className="truncate">{a.nome}</span>
+            <label className="inline-flex items-center gap-2 text-sm shrink-0">
+              <input
+                type="checkbox"
+                checked={!!pres[a.id]}
+                onChange={() => togglePresenca(a.id)}
+              />
+              Presente
+            </label>
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-4 flex items-center gap-3 flex-wrap sm:flex-nowrap">
+        <button className="btn-primary px-5 shrink-0" onClick={salvarChamada}>Salvar chamada</button>
+        <button
+          className="inline-flex items-center justify-center rounded-2xl border px-4 py-2 font-medium hover:bg-gray-50 shrink-0"
+          onClick={addAlunoManual}
+        >
+          Adicionar aluno
+        </button>
       </div>
 
       <div className="mt-4">
-        <h3 className="text-sm font-semibold mb-2">Lista de alunos ({alunos.length})</h3>
-        {/* -mx-4 para faixas irem até a borda do card (compensa o padding do container) */}
-        <ul className="w-full overflow-hidden rounded-2xl border border-blue-100">
-        <ul className="w-full overflow-hidden rounded-2xl border border-blue-100">
-          {alunos.map((a, idx) => (
-            <li key={a.id} className={`w-full flex items-center justify-between px-4 py-3 ${idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"}`}>
-              <div className="flex-1 min-w-0">
-                <AlunoNameEditor
-                  turmaId={turmaId}
-                  aluno={a}
-                  onSaved={refreshAlunosAndPresencas}
-                />
-              </div>
-        </ul>
-              <label className="inline-flex items-center gap-2 text-sm shrink-0">
-                <input type="checkbox" checked={!!presencas[a.id]} onChange={()=>onToggleAluno(a.id)} />
-                Presente
-              </label>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button onClick={onSalvarChamada} className="btn-primary">Salvar chamada</button>
-        <button onClick={onAddAluno} className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border border-[color:var(--color-secondary)] text-[color:var(--color-secondary)] hover:bg-blue-50">Adicionar aluno</button>
-        <label className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border cursor-pointer hover:bg-gray-50">
+        <button
+          className="inline-flex items-center justify-center rounded-2xl border px-4 py-2 font-medium hover:bg-gray-50"
+          onClick={importarPlanilha}
+        >
           Adicionar alunos (CSV/XLSX)
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
-            className="hidden"
-            onChange={(e)=>{ const f=e.target.files?.[0]; if (f) onImport(f); }}
-          />
-        </label>
-        <div className="flex items-center gap-3 text-sm">
-          <a href="/templates/modelo-alunos.csv" className="underline" target="_blank" rel="noreferrer">planilha padrão (CSV)</a>
-          <span className="text-gray-300">|</span>
-          <a href="/templates/modelo-alunos.xlsx" className="underline" target="_blank" rel="noreferrer">planilha padrão (XLSX)</a>
+        </button>
+        <input ref={fileRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={onFile} />
+        <div className="mt-2 flex gap-4 text-sm">
+          <Link href="/templates/alunos.csv" className="underline">planilha padrão (CSV)</Link>
+          <Link href="/templates/alunos.xlsx" className="underline">planilha padrão (XLSX)</Link>
         </div>
       </div>
     </div>

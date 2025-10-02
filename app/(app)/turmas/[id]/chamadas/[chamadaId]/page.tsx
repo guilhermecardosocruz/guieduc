@@ -15,7 +15,7 @@ type Chamada = {
 
 function readJSON<T>(k: string, fb: T): T {
   if (typeof window === "undefined") return fb;
-  try { const raw = localStorage.getItem(k); return raw ? JSON.parse(raw) as T : fb; }
+  try { const raw = localStorage.getItem(k); return raw ? (JSON.parse(raw) as T) : fb; }
   catch { return fb; }
 }
 function writeJSON<T>(k: string, v: T) {
@@ -119,13 +119,20 @@ export default function EditarChamadaPage() {
       />
 
       <p className="text-sm font-semibold mb-2">Lista de alunos ({alunosOrdenados.length})</p>
+
       <ul className="w-full overflow-hidden rounded-2xl border border-blue-100">
-        <ul className="w-full overflow-hidden rounded-2xl border border-blue-100">
         {alunosOrdenados.map((a, idx) => (
-          <li key={a.id} className={`w-full flex items-center justify-between px-4 py-3 ${idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"}`}>
+          <li
+            key={a.id}
+            className={`w-full flex items-center justify-between px-4 py-3 ${idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"}`}
+          >
             <span className="truncate">{a.nome}</span>
             <label className="inline-flex items-center gap-2 text-sm shrink-0">
-              <input type="checkbox" checked={!!pres[a.id]} onChange={()=>togglePresenca(a.id)} />
+              <input
+                type="checkbox"
+                checked={!!pres[a.id]}
+                onChange={()=>togglePresenca(a.id)}
+              />
               Presente
             </label>
           </li>
@@ -141,7 +148,6 @@ export default function EditarChamadaPage() {
           Adicionar aluno
         </button>
       </div>
-        </ul>
 
       <div className="mt-4">
         <button
