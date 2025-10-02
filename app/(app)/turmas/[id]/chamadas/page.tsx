@@ -1,14 +1,13 @@
 "use client";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type Chamada = {
   id: string;
   turmaId: string;
-  numero?: number;        // <- numeração estável
+  numero?: number;              // <- numeração estável
   nome?: string;
-  conteudo?: string;
   presencas?: Record<string, boolean>;
   createdAt: number;
 };
@@ -25,32 +24,26 @@ function writeJSON<T>(k: string, v: T) {
 
 export default function ChamadasHomePage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const base = `/turmas/${id}`;
 
-  const [ordem, setOrdem] = useState<"asc" | "desc">("desc");
+  const [ordem, setOrdem] = useState<"asc" | "desc">("asc");
   const [itens, setItens] = useState<Chamada[]>([]);
 
-  // migra números quando faltarem (1..n por createdAt asc)
-  function migrateNumeroIfNeeded(arr: Chamada[]): Chamada[] {
+  // migra numeros quando faltarem (1..n por createdAt asc), sem mexer no layout
+  function migrateNumeros(arr: Chamada[]): Chamada[] {
     if (!arr.length) return arr;
     if (arr.every(c => typeof c.numero === "number" && c.numero! > 0)) return arr;
-
     const byCreated = [...arr].sort((a,b) => a.createdAt - b.createdAt);
-    byCreated.forEach((c, idx) => { if (!c.numero || c.numero <= 0) c.numero = idx + 1; });
+    byCreated.forEach((c, i) => { if (!c.numero || c.numero <= 0) c.numero = i + 1; });
     return byCreated;
   }
 
   function carregar() {
     const key = `guieduc:chamadas:${id}`;
     let arr = readJSON<Chamada[]>(key, []);
-    const migrated = migrateNumeroIfNeeded(arr);
-    if (migrated !== arr) {
-      // se mudou algo, salva de volta
-      writeJSON(key, migrated);
-      arr = migrated;
-    }
-    setItens(arr);
+    const migrated = migrateNumeros(arr);
+    if (migrated !== arr) writeJSON(key, migrated);
+    setItens(migrated);
   }
 
   useEffect(() => {
@@ -63,41 +56,47 @@ export default function ChamadasHomePage() {
   }, [id]);
 
   const ordenadas = useMemo(() => {
-    const clone = [...itens];
-    clone.sort((a, b) => ordem === "asc" ? a.createdAt - b.createdAt : b.createdAt - a.createdAt);
-    return clone;
+    const r = [...itens];
+    r.sort((a,b) => ordem === "asc" ? a.createdAt - b.createdAt : b.createdAt - a.createdAt);
+    return r;
   }, [itens, ordem]);
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-6">
+    <div className="rounded-3xl border border-gray-100 bg-white p-5">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold">Chamadas</h2>
-        <div className="flex items-center gap-2">
-          <button
-            className="inline-flex items-center justify-center rounded-2xl border px-3 py-1.5 text-sm hover:bg-gray-50"
-            onClick={() => setOrdem(o => (o === "asc" ? "desc" : "asc"))}
-            title="Alternar ordem (antigas/novas)"
-          >
-            {ordem === "asc" ? "Antigas → Novas" : "Novas → Antigas"}
-          </button>
-          <Link href={`${base}/chamadas/nova`} className="btn-primary">Adicionar chamada</Link>
-        </div>
+        <Link href={base} className="underline">Voltar para Turma</Link>
+        <Link href={`${base}/chamadas/nova`} className="btn-primary">Adicionar chamada</Link>
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-sm mb-1">Ordenar:</label>
+        <select
+          value={ordem}
+          onChange={(e)=>setOrdem(e.target.value as any)}
+          className="input"
+        >
+          <option value="asc">Crescente (mais antiga → nova)</option>
+          <option value="desc">Decrescente (mais nova → antiga)</option>
+        </select>
       </div>
 
       {ordenadas.length === 0 ? (
-        <p className="text-sm text-gray-600">Nenhuma chamada criada ainda.</p>
+        <p className="text-sm text-gray-600">Nenhuma chamada criada.</p>
       ) : (
-        <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <ul className="space-y-3">
           {ordenadas.map(c => (
-            <li key={c.id} className="rounded-2xl border border-gray-100 p-4 bg-white">
-              <div className="text-sm text-gray-500 mb-1">Aula {c.numero ?? "—"}</div>
-              <div className="font-medium truncate mb-3">{c.nome || "Sem nome"}</div>
-              <Link
-                href={`${base}/chamadas/${c.id}`}
-                className="inline-flex items-center justify-center rounded-2xl border px-3 py-1.5 text-sm hover:bg-gray-50"
-              >
-                Editar chamada
-              </Link>
+            <li key={c.id} className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-blue-700 text-sm font-semibold">
+                  {c.numero ?? "—"}
+                </span>
+                <Link href={`${base}/chamadas/${c.id}`} className="truncate underline">
+                  {c.nome || "Sem título"}
+                </Link>
+              </div>
+              <span className="text-xs text-gray-500">
+                {new Date(c.createdAt).toLocaleDateString()}
+              </span>
             </li>
           ))}
         </ul>
