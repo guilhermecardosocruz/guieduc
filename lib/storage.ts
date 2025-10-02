@@ -88,8 +88,8 @@ export function removeTurma(turmaId: string): boolean {
 
 // ----------------- Alunos -----------------
 export function listAlunos(turmaId: string): Aluno[] {
-  const arr = readJSON<Aluno[]>(`guieduc:alunos:`, []);
-  return [...arr].sort((a,b) => compareNames(a.nome, b.nome));
+  const arr = readJSON<Aluno[]>(`guieduc:alunos:${turmaId}`, []);
+  return [...arr].sort((a,b)=>compareNames(a?.nome||"", b?.nome||""));
 }
 
 export function addAluno(turmaId: string, nome: string): Aluno {
