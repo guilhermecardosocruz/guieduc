@@ -2,8 +2,8 @@
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import AlunoNameEditor, { type Aluno } from "@/components/AlunoNameEditor";
 
-type Aluno = { id: string; nome: string; createdAt: number };
 type Chamada = {
   id: string;
   turmaId: string;
@@ -127,7 +127,12 @@ export default function NovaChamadaPage() {
             key={a.id}
             className={`w-full flex items-center justify-between px-4 py-3 ${idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"}`}
           >
-            <span className="truncate">{a.nome}</span>
+            <div className="flex-1 min-w-0">
+              <AlunoNameEditor turmaId={id} aluno={a} onSaved={()=>{
+                const akey = `guieduc:alunos:${id}`;
+                setAlunos(readJSON<Aluno[]>(akey, []));
+              }} />
+            </div>
             <input
               type="checkbox"
               className="h-5 w-5 shrink-0"

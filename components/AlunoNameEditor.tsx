@@ -1,103 +1,132 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import type { Aluno } from "@/lib/storage";
-import { updateAlunoName, removeAluno } from "@/lib/storage";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+export type Aluno = { id: string; nome: string; createdAt: number };
+
+function readJSON<T>(k: string, fb: T): T {
+  if (typeof window === "undefined") return fb;
+  try { const raw = localStorage.getItem(k); return raw ? (JSON.parse(raw) as T) : fb; }
+  catch { return fb; }
+}
+function writeJSON<T>(k: string, v: T) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(k, JSON.stringify(v));
+}
 
 export default function AlunoNameEditor({
   turmaId,
   aluno,
-  onSaved
+  onSaved,
 }: {
-  turmaId: string;
+  turmaId: string | number;
   aluno: Aluno;
-  onSaved: () => void; // chamado após salvar OU excluir
+  onSaved?: () => void; // pai recarrega alunos+presenças
 }) {
   const [open, setOpen] = useState(false);
-  const [valor, setValor] = useState(aluno.nome);
+  const [nome, setNome] = useState(aluno.nome);
   const timerRef = useRef<number | null>(null);
+  const pressedRef = useRef(false);
 
-  useEffect(() => setValor(aluno.nome), [aluno.nome]);
+  useEffect(() => setNome(aluno.nome), [aluno.nome]);
 
-  function startLongPress() {
-    stopLongPress();
-    timerRef.current = window.setTimeout(() => setOpen(true), 600);
-  }
-  function stopLongPress() {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
+  const openEditor = useCallback(() => setOpen(true), []);
+  const closeEditor = useCallback(() => {
+    setOpen(false);
+    setNome(aluno.nome);
+  }, [aluno.nome]);
+
+  // Long press (desktop e mobile)
+  const startPress = () => {
+    pressedRef.current = true;
+    timerRef.current = window.setTimeout(() => {
+      if (pressedRef.current) openEditor();
+    }, 500);
+  };
+  const cancelPress = () => {
+    pressedRef.current = false;
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    timerRef.current = null;
+  };
+
+  function save() {
+    const akey = `guieduc:alunos:${turmaId}`;
+    const arr = readJSON<Aluno[]>(akey, []);
+    const i = arr.findIndex((x) => x.id === aluno.id);
+    if (i >= 0) {
+      arr[i] = { ...arr[i], nome: nome.trim() || arr[i].nome };
+      writeJSON(akey, arr);
     }
-  }
-  function onDoubleClick() { setOpen(true); }
-
-  function salvar() {
-    const ok = updateAlunoName(turmaId, aluno.id, valor);
-    if (ok) { onSaved(); setOpen(false); }
-    else alert("Informe um nome válido.");
+    setOpen(false);
+    onSaved?.();
   }
 
-  function excluir() {
-    if (!confirm(`Excluir o aluno "${aluno.nome}" desta turma?`)) return;
-    const ok = removeAluno(turmaId, aluno.id);
-    if (ok) { onSaved(); setOpen(false); }
-    else alert("Não foi possível excluir.");
+  function remove() {
+    if (!confirm("Excluir este aluno da turma?")) return;
+    const akey = `guieduc:alunos:${turmaId}`;
+    const arr = readJSON<Aluno[]>(akey, []);
+    const next = arr.filter((x) => x.id !== aluno.id);
+    writeJSON(akey, next);
+
+    // Não mexemos diretamente nas presenças aqui; o pai deve recarregar
+    setOpen(false);
+    onSaved?.();
   }
 
   return (
     <>
+      {/* Nome exibido: abre editor com duplo clique ou toque longo */}
       <span
-        className="truncate pr-3 cursor-pointer select-none"
-        title="Duplo clique (desktop) ou toque longo (mobile) para editar"
-        onDoubleClick={onDoubleClick}
-        onMouseDown={startLongPress}
-        onMouseUp={stopLongPress}
-        onMouseLeave={stopLongPress}
-        onTouchStart={startLongPress}
-        onTouchEnd={stopLongPress}
+        className="truncate cursor-pointer"
+        title="Duplo clique ou toque e segure para editar"
+        onDoubleClick={openEditor}
+        onMouseDown={startPress}
+        onMouseUp={cancelPress}
+        onMouseLeave={cancelPress}
+        onTouchStart={startPress}
+        onTouchEnd={cancelPress}
       >
         {aluno.nome}
       </span>
 
+      {/* Modal */}
       {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-2xl bg-white p-5 shadow"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold mb-3">Editar nome do aluno</h3>
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-lg p-5">
+            <h3 className="text-lg font-semibold mb-3">Editar aluno</h3>
+
+            <label className="block text-sm mb-1">Nome</label>
             <input
-              className="input w-full"
-              value={valor}
-              onChange={(e) => setValor(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") salvar();
-                if (e.key === "Escape") setOpen(false);
-              }}
-              autoFocus
+              className="input mb-4"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
               placeholder="Nome do aluno"
+              autoFocus
             />
-            <div className="mt-4 flex items-center justify-between gap-2">
+
+            <div className="flex items-center justify-between gap-3">
               <button
-                className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border border-red-300 text-red-600 hover:bg-red-50"
-                onClick={excluir}
+                onClick={remove}
+                className="text-red-600 hover:underline"
               >
                 Excluir
               </button>
-              <div className="flex gap-2">
+
+              <div className="ml-auto flex items-center gap-2">
                 <button
-                  className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border hover:bg-gray-50"
-                  onClick={() => setOpen(false)}
+                  onClick={closeEditor}
+                  className="inline-flex items-center justify-center rounded-2xl border px-4 py-2 font-medium hover:bg-gray-50"
                 >
                   Cancelar
                 </button>
-                <button className="btn-primary" onClick={salvar}>
+                <button onClick={save} className="btn-primary px-5">
                   Salvar
                 </button>
               </div>
             </div>
+
+            <p className="mt-3 text-xs text-gray-500">
+              Dica: duplo clique ou toque e segure no nome para editar.
+            </p>
           </div>
         </div>
       )}

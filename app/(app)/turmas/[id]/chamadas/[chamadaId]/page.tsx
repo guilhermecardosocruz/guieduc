@@ -2,8 +2,8 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import AlunoNameEditor, { type Aluno } from "@/components/AlunoNameEditor";
 
-type Aluno = { id: string; nome: string; createdAt: number };
 type Chamada = {
   id: string;
   turmaId: string;
@@ -26,14 +26,13 @@ const strip = (s: string) => (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g
 
 export default function EditarChamadaPage() {
   const { id, chamadaId } = useParams<{ id: string; chamadaId: string }>();
-  const base = `/turmas/${id}`;
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [nomeAula, setNomeAula] = useState("");
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [pres, setPres] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
+  function refreshAlunosAndPresencas() {
     const ckey = `guieduc:chamadas:${id}`;
     const akey = `guieduc:alunos:${id}`;
     const arrC = readJSON<Chamada[]>(ckey, []);
@@ -42,7 +41,9 @@ export default function EditarChamadaPage() {
     setNomeAula(c?.nome || "");
     setPres(c?.presencas || {});
     setAlunos(arrA);
-  }, [id, chamadaId]);
+  }
+
+  useEffect(() => { refreshAlunosAndPresencas(); }, [id, chamadaId]);
 
   function salvarChamada() {
     const key = `guieduc:chamadas:${id}`;
@@ -126,7 +127,9 @@ export default function EditarChamadaPage() {
             key={a.id}
             className={`w-full flex items-center justify-between px-4 py-3 ${idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"}`}
           >
-            <span className="truncate">{a.nome}</span>
+            <div className="flex-1 min-w-0">
+              <AlunoNameEditor turmaId={id} aluno={a} onSaved={refreshAlunosAndPresencas} />
+            </div>
             <input
               type="checkbox"
               className="h-5 w-5 shrink-0"
