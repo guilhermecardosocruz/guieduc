@@ -1,3 +1,4 @@
+import DataBackup from "@/components/DataBackup";
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -75,6 +76,7 @@ export default function DashboardPage() {
           <TurmasGrid turmas={turmas} onDelete={onDeleteTurma} />
         </div>
       </main>
+        <DataBackup />
 
       <footer className="border-t border-gray-100 bg-white">
         <div className="mx-auto max-w-6xl px-6 py-6 text-sm text-gray-500">
