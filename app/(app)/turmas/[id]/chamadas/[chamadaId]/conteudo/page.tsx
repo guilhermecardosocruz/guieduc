@@ -45,7 +45,7 @@ export default function ConteudoDaAulaPage() {
     }
   }
 
-  const back = `/turmas/${id}/chamadas`;
+  const back = `/turmas/${id}/chamadas/${chamadaId}`;
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
