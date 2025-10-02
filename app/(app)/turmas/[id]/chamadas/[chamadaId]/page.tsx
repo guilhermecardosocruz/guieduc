@@ -141,6 +141,7 @@ export default function EditarChamadaPage() {
           Adicionar aluno
         </button>
       </div>
+        </ul>
 
       <div className="mt-4">
         <button

@@ -93,6 +93,7 @@ export default function NovaChamadaPage() {
                   onSaved={refreshAlunosAndPresencas}
                 />
               </div>
+        </ul>
               <label className="inline-flex items-center gap-2 text-sm shrink-0">
                 <input type="checkbox" checked={!!presencas[a.id]} onChange={()=>onToggleAluno(a.id)} />
                 Presente
