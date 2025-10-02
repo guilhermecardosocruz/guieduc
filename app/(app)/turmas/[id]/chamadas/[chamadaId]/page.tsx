@@ -114,9 +114,9 @@ export default function EditarChamadaPage() {
         <Link href={`${base}/chamadas`} className="underline">Voltar para Chamadas</Link>
       </div>
 
-      {/* Card central mais largo */}
-      <div className="mx-auto max-w-3xl rounded-2xl border border-gray-100 bg-white p-4 sm:p-5">
-        {/* Nome da aula (como no design) */}
+      {/* card CENTRADO e bem largo */}
+      <div className="mx-auto w-full max-w-4xl rounded-2xl border border-gray-100 bg-white p-4 sm:p-6">
+        {/* Nome da aula */}
         <label className="block text-sm mb-1">Nome da aula</label>
         <input
           className="input mb-4"
@@ -125,7 +125,7 @@ export default function EditarChamadaPage() {
           placeholder="Ex.: Frações — revisão"
         />
 
-        {/* Conteúdo -> BOTÃO (sem mudar o resto do layout) */}
+        {/* Conteúdo -> BOTÃO (mantendo layout) */}
         <label className="block text-sm mb-1">Conteúdo</label>
         <Link
           href={`${base}/chamadas/${chamadaId}/conteudo`}
@@ -134,7 +134,7 @@ export default function EditarChamadaPage() {
           Conteúdo da aula
         </Link>
 
-        {/* Lista de alunos em LINHAS (faixas de lado a lado ocupando toda a largura) */}
+        {/* Lista de alunos em FAIXAS ocupando toda a largura */}
         <p className="text-sm font-semibold mb-2">Lista de alunos ({alunosOrdenados.length})</p>
         <ul className="divide-y divide-gray-100 rounded-2xl overflow-hidden">
           {alunosOrdenados.map((a, idx) => (
@@ -151,18 +151,18 @@ export default function EditarChamadaPage() {
           ))}
         </ul>
 
-        {/* Botões na MESMA LINHA e sem ficarem largos demais */}
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button className="btn-primary px-5" onClick={salvarChamada}>Salvar chamada</button>
+        {/* Botões: MESMA LINHA, compactos */}
+        <div className="mt-4 flex items-center gap-3 flex-wrap sm:flex-nowrap">
+          <button className="btn-primary px-5 shrink-0" onClick={salvarChamada}>Salvar chamada</button>
           <button
-            className="inline-flex items-center justify-center rounded-2xl border px-4 py-2 font-medium hover:bg-gray-50"
+            className="inline-flex items-center justify-center rounded-2xl border px-4 py-2 font-medium hover:bg-gray-50 shrink-0"
             onClick={addAlunoManual}
           >
             Adicionar aluno
           </button>
         </div>
 
-        {/* Importar planilha (como antes) */}
+        {/* Importar planilha */}
         <div className="mt-4">
           <button
             className="inline-flex items-center justify-center rounded-2xl border px-4 py-2 font-medium hover:bg-gray-50"
