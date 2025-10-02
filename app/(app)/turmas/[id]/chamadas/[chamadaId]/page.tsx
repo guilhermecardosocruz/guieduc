@@ -15,40 +15,30 @@ type Chamada = {
 
 function readJSON<T>(k: string, fb: T): T {
   if (typeof window === "undefined") return fb;
-  try {
-    const raw = localStorage.getItem(k);
-    return raw ? (JSON.parse(raw) as T) : fb;
-  } catch {
-    return fb;
-  }
+  try { const raw = localStorage.getItem(k); return raw ? JSON.parse(raw) as T : fb; }
+  catch { return fb; }
 }
 function writeJSON<T>(k: string, v: T) {
   if (typeof window === "undefined") return;
   localStorage.setItem(k, JSON.stringify(v));
 }
-const strip = (s: string) =>
-  (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+const strip = (s: string) => (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
 
 export default function EditarChamadaPage() {
   const { id, chamadaId } = useParams<{ id: string; chamadaId: string }>();
   const base = `/turmas/${id}`;
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [turmaNome, setTurmaNome] = useState<string>("");
   const [nomeAula, setNomeAula] = useState("");
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [pres, setPres] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    // nome da turma para exibir no cabeçalho
-    const turmas = readJSON<{ id: string; nome: string }[]>("guieduc:turmas", []);
-    setTurmaNome(turmas.find((t) => t.id === String(id))?.nome || "");
-
     const ckey = `guieduc:chamadas:${id}`;
     const akey = `guieduc:alunos:${id}`;
     const arrC = readJSON<Chamada[]>(ckey, []);
     const arrA = readJSON<Aluno[]>(akey, []);
-    const c = arrC.find((x) => x.id === String(chamadaId));
+    const c = arrC.find(x => x.id === String(chamadaId));
     setNomeAula(c?.nome || "");
     setPres(c?.presencas || {});
     setAlunos(arrA);
@@ -57,7 +47,7 @@ export default function EditarChamadaPage() {
   function salvarChamada() {
     const key = `guieduc:chamadas:${id}`;
     const arr = readJSON<Chamada[]>(key, []);
-    const i = arr.findIndex((x) => x.id === String(chamadaId));
+    const i = arr.findIndex(x => x.id === String(chamadaId));
     if (i >= 0) {
       arr[i] = { ...arr[i], nome: nomeAula, presencas: pres };
       writeJSON(key, arr);
@@ -71,19 +61,14 @@ export default function EditarChamadaPage() {
     const akey = `guieduc:alunos:${id}`;
     const cur = readJSON<Aluno[]>(akey, []);
     const novo: Aluno = { id: crypto.randomUUID(), nome: nome.trim(), createdAt: Date.now() };
-    const next = [...cur, novo].sort((a, b) =>
-      strip(a.nome) < strip(b.nome) ? -1 : strip(a.nome) > strip(b.nome) ? 1 : 0
-    );
+    const next = [...cur, novo].sort((a,b)=> strip(a.nome)<strip(b.nome)?-1:strip(a.nome)>strip(b.nome)?1:0);
     writeJSON(akey, next);
     setAlunos(next);
   }
 
-  function importarPlanilha() {
-    fileRef.current?.click();
-  }
+  function importarPlanilha() { fileRef.current?.click(); }
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
+    const f = e.target.files?.[0]; if (!f) return;
     const akey = `guieduc:alunos:${id}`;
     const cur = readJSON<Aluno[]>(akey, []);
     try {
@@ -94,24 +79,13 @@ export default function EditarChamadaPage() {
         const wb = XLSX.read(buf, { type: "array" });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const json: any[] = XLSX.utils.sheet_to_json(ws, { header: 1 });
-        nomes = (json || [])
-          .map((r) => String(r?.[0] ?? "").trim())
-          .filter(Boolean);
+        nomes = (json||[]).map(r => String(r?.[0] ?? "").trim()).filter(Boolean);
       } else {
         const text = await f.text();
-        nomes = text
-          .split(/\r?\n/)
-          .map((l) => l.split(/[;,]/)[0]?.trim() || "")
-          .filter(Boolean);
+        nomes = text.split(/\r?\n/).map(l => l.split(/[;,]/)[0]?.trim() || "").filter(Boolean);
       }
-      const novos: Aluno[] = nomes.map((n) => ({
-        id: crypto.randomUUID(),
-        nome: n,
-        createdAt: Date.now(),
-      }));
-      const next = [...cur, ...novos].sort((a, b) =>
-        strip(a.nome) < strip(b.nome) ? -1 : strip(a.nome) > strip(b.nome) ? 1 : 0
-      );
+      const novos: Aluno[] = nomes.map(n => ({ id: crypto.randomUUID(), nome: n, createdAt: Date.now() }));
+      const next = [...cur, ...novos].sort((a,b)=> strip(a.nome)<strip(b.nome)?-1:strip(a.nome)>strip(b.nome)?1:0);
       writeJSON(akey, next);
       setAlunos(next);
       alert(`Importados ${novos.length} aluno(s).`);
@@ -123,60 +97,46 @@ export default function EditarChamadaPage() {
   }
 
   function togglePresenca(alunoId: string) {
-    setPres((p) => ({ ...p, [alunoId]: !p[alunoId] }));
+    setPres(p => ({ ...p, [alunoId]: !p[alunoId] }));
   }
 
   const alunosOrdenados = useMemo(
-    () =>
-      [...alunos].sort((a, b) => {
-        const na = strip(a.nome),
-          nb = strip(b.nome);
-        return na < nb ? -1 : na > nb ? 1 : 0;
-      }),
+    () => [...alunos].sort((a,b)=>{
+      const na = strip(a.nome), nb = strip(b.nome);
+      return na<nb ? -1 : na>nb ? 1 : 0;
+    }),
     [alunos]
   );
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
-      {/* Cabeçalho com nome da turma (esquerda) e botão Conteúdo (direita) */}
-      <div className="mx-auto w-full max-w-4xl mb-4 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">{turmaNome || "Turma"}</h1>
-        <Link
-          href={`${base}/chamadas/${chamadaId}/conteudo`}
-          className="btn-primary px-5 py-2"
-        >
+      {/* TOPO: só o botão Conteúdo alinhado à direita (o título já vem do layout) */}
+      <div className="mx-auto w-full max-w-4xl mb-4 flex items-center justify-end">
+        <Link href={`${base}/chamadas/${chamadaId}/conteudo`} className="btn-primary px-5 py-2">
           Conteúdo
         </Link>
       </div>
 
-      {/* Card principal (SEM link 'voltar para chamadas' e SEM botão de conteúdo aqui dentro) */}
+      {/* Card principal */}
       <div className="mx-auto w-full max-w-4xl rounded-2xl border border-gray-100 bg-white p-4 sm:p-6">
         <label className="block text-sm mb-1">Nome da aula</label>
         <input
           className="input mb-4"
           value={nomeAula}
-          onChange={(e) => setNomeAula(e.target.value)}
+          onChange={(e)=>setNomeAula(e.target.value)}
           placeholder="Ex.: Frações — revisão"
         />
 
-        <p className="text-sm font-semibold mb-2">
-          Lista de alunos ({alunosOrdenados.length})
-        </p>
+        <p className="text-sm font-semibold mb-2">Lista de alunos ({alunosOrdenados.length})</p>
         <ul className="divide-y divide-gray-100 rounded-2xl overflow-hidden">
           {alunosOrdenados.map((a, idx) => (
             <li
               key={a.id}
-              className={`flex items-center justify-between py-2 px-4 gap-3 ${
-                idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"
-              }`}
+              className={`flex items-center justify-between py-2 px-4 gap-3 ${idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"}`}
             >
               <span className="truncate">{a.nome}</span>
               <label className="inline-flex items-center gap-2 text-sm shrink-0">
-                <input
-                  type="checkbox"
-                  checked={!!pres[a.id]}
-                  onChange={() => togglePresenca(a.id)}
-                />
+                <input type="checkbox" checked={!!pres[a.id]} onChange={()=>togglePresenca(a.id)} />
                 Presente
               </label>
             </li>
@@ -184,9 +144,7 @@ export default function EditarChamadaPage() {
         </ul>
 
         <div className="mt-4 flex items-center gap-3 flex-wrap sm:flex-nowrap">
-          <button className="btn-primary px-5 shrink-0" onClick={salvarChamada}>
-            Salvar chamada
-          </button>
+          <button className="btn-primary px-5 shrink-0" onClick={salvarChamada}>Salvar chamada</button>
           <button
             className="inline-flex items-center justify-center rounded-2xl border px-4 py-2 font-medium hover:bg-gray-50 shrink-0"
             onClick={addAlunoManual}
@@ -202,20 +160,10 @@ export default function EditarChamadaPage() {
           >
             Adicionar alunos (CSV/XLSX)
           </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv,.xlsx"
-            className="hidden"
-            onChange={onFile}
-          />
+          <input ref={fileRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={onFile} />
           <div className="mt-2 flex gap-4 text-sm">
-            <Link href="/templates/alunos.csv" className="underline">
-              planilha padrão (CSV)
-            </Link>
-            <Link href="/templates/alunos.xlsx" className="underline">
-              planilha padrão (XLSX)
-            </Link>
+            <Link href="/templates/alunos.csv" className="underline">planilha padrão (CSV)</Link>
+            <Link href="/templates/alunos.xlsx" className="underline">planilha padrão (XLSX)</Link>
           </div>
         </div>
       </div>
