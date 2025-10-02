@@ -25,7 +25,7 @@ export default function ConteudosPage() {
       if (/\.(xlsx?)$/i.test(f.name)) {
         await addConteudosXLSX(id, f);
       } else {
-        await addConteudosCSV(id, f);
+        await (async()=>{const txt=await f.text(); await addConteudosCSV(id, txt)})();
       }
       refresh();
       alert("Conteúdos importados!");

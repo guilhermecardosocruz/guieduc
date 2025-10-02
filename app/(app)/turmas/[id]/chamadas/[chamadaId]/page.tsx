@@ -1,7 +1,7 @@
 "use client";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { listAlunos, getChamada, saveChamada } from "@/lib/storage";
+import { listAlunos, getChamada, updateChamada } from "@/lib/storage";
 
 export default function EditarChamadaPage() {
   const { id: turmaId, chamadaId } = useParams<{ id: string; chamadaId: string }>();
@@ -25,7 +25,7 @@ export default function EditarChamadaPage() {
   }
 
   async function salvar() {
-    await saveChamada(turmaId, chamadaId, { titulo, presencas });
+    await updateChamada(turmaId, chamadaId, { presencas });
     router.back();
   }
 

@@ -337,3 +337,9 @@ export async function addConteudosXLSX(turmaId: string, file: File | ArrayBuffer
   }
   return count;
 }
+
+/** Remove um conteúdo pelo id. */
+export function removeConteudo(turmaId: string, conteudoId: string): void {
+  const all = listConteudos(turmaId).filter(c => c.id !== conteudoId);
+  writeJSON(`guieduc:conteudos:${turmaId}`, all);
+}

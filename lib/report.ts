@@ -54,7 +54,7 @@ export function computeReport(turmaId: string, period: PeriodKey): Report {
     const pct = totalAlunos > 0 ? (presentes / totalAlunos) * 100 : null;
     return {
       id: c.id,
-      titulo: c.titulo || "Sem título",
+      titulo: c.nome || "Sem título",
       data: new Date(c.createdAt),
       presentes,
       totalAlunos,
