@@ -5,7 +5,7 @@ import runtimeCaching from 'next-pwa/cache.js';
 const baseConfig = { reactStrictMode: true };
 const isDev = process.env.NODE_ENV === 'development';
 
-export default withPWA({
+const nextConfig = {   reactStrictMode: true,   experimental: { optimizePackageImports: ["xlsx"] } };
   dest: 'public',
   register: true,
   skipWaiting: true,
