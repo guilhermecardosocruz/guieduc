@@ -82,15 +82,10 @@ export default function NovaChamadaPage() {
       <div className="mt-4">
         <h3 className="text-sm font-semibold mb-2">Lista de alunos ({alunos.length})</h3>
         {/* -mx-4 para faixas irem até a borda do card (compensa o padding do container) */}
-        <ul className="-mx-4">
+        <ul className="w-full overflow-hidden rounded-2xl border border-blue-100">
         <ul className="w-full overflow-hidden rounded-2xl border border-blue-100">
           {alunos.map((a, idx) => (
-            <li
-              key={a.id}
-              className={`flex items-center justify-between py-2 px-4 gap-3 ${
-                idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"
-              }`}
-            >
+            <li key={a.id} className={`w-full flex items-center justify-between px-4 py-3 ${idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"}`}>
               <div className="flex-1 min-w-0">
                 <AlunoNameEditor
                   turmaId={turmaId}
