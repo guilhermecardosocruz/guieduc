@@ -21,11 +21,24 @@ export default function TurmaLayout({ children }: { children: React.ReactNode })
     setTurmaNome(turmas.find(t => t.id === String(id))?.nome || "");
   }, [id]);
 
-  // Se a rota for /turmas/:id/chamadas/:chamadaId (mas NÃO /conteudo),
-  // mostramos o botão "Conteúdo" ao lado do título.
+  // Href do botão VOLTAR conforme a tela atual
+  function getBackHref() {
+    if (!pathname) return "/dashboard";
+    if (pathname.match(/^\/turmas\/[^/]+\/chamadas\/[^/]+/)) {
+      // edição/visualização de uma chamada -> volta para a lista de chamadas
+      return `${base}/chamadas`;
+    }
+    if (pathname.match(/^\/turmas\/[^/]+\/chamadas\/?$/)) {
+      // lista de chamadas -> volta para a turma
+      return `${base}`;
+    }
+    // páginas da própria turma (index, conteúdos etc.) -> volta para dashboard
+    return "/dashboard";
+  }
+
+  // Botão "Conteúdo" à direita do título, apenas quando estiver numa chamada (e não na rota /conteudo)
   let rightAction: React.ReactNode = null;
   if (pathname) {
-    // ex: /turmas/123/chamadas/abc
     const m = pathname.match(/^\/turmas\/([^/]+)\/chamadas\/([^/]+)(?:$|\/(?!conteudo).*)/);
     if (m && m[1] && m[2] && !pathname.includes("/conteudo")) {
       const chamadaId = m[2];
@@ -42,7 +55,14 @@ export default function TurmaLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
-      {/* Cabeçalho: título da turma à esquerda + ação à direita */}
+      {/* Linha 1: botão Voltar (barra superior) */}
+      <div className="mx-auto w-full max-w-4xl mb-4">
+        <Link href={getBackHref()} className="btn-primary inline-flex px-5 py-2">
+          Voltar
+        </Link>
+      </div>
+
+      {/* Linha 2: título da turma à esquerda + ação à direita */}
       <div className="mx-auto w-full max-w-4xl mb-4 flex items-center justify-between">
         <h1 className="text-3xl font-bold">{turmaNome || "Turma"}</h1>
         {rightAction}
