@@ -7,7 +7,7 @@ import AlunoNameEditor, { type Aluno } from "@/components/AlunoNameEditor";
 type Chamada = {
   id: string;
   turmaId: string;
-  nome?: string;
+  nome?: string;             // <-- garantimos salvar aqui
   conteudo?: string;
   presencas?: Record<string, boolean>;
   createdAt: number;
@@ -36,8 +36,7 @@ export default function NovaChamadaPage() {
 
   useEffect(() => {
     const akey = `guieduc:alunos:${id}`;
-    const arrA = readJSON<Aluno[]>(akey, []);
-    setAlunos(arrA);
+    setAlunos(readJSON<Aluno[]>(akey, []));
   }, [id]);
 
   const alunosOrdenados = useMemo(
@@ -59,7 +58,7 @@ export default function NovaChamadaPage() {
     const nova: Chamada = {
       id: crypto.randomUUID(),
       turmaId: String(id),
-      nome: nomeAula.trim(),
+      nome: nomeAula.trim(), // <-- salva em nome
       presencas: pres,
       createdAt: Date.now()
     };

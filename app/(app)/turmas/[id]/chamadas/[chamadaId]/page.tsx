@@ -29,31 +29,56 @@ export default function EditarChamadaPage() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [nomeAula, setNomeAula] = useState("");
+  const [nomeAula, setNomeAula] = useState<string>("");
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [pres, setPres] = useState<Record<string, boolean>>({});
 
-  function refreshAlunosAndPresencas() {
+  function carregar() {
     const ckey = `guieduc:chamadas:${id}`;
     const akey = `guieduc:alunos:${id}`;
     const arrC = readJSON<Chamada[]>(ckey, []);
     const arrA = readJSON<Aluno[]>(akey, []);
-    const c = arrC.find(x => x.id === String(chamadaId));
-    setNomeAula(c?.nome || "");       // <-- já vem com o nome criado e pode editar
-    setPres(c?.presencas || {});
+
+    const cid = String(chamadaId);
+    const encontrada = arrC.find(x => String(x.id) === cid);
+
+    if (!encontrada) {
+      console.warn("[EditarChamada] chamada não encontrada", { cid, total: arrC.length, arrC });
+    }
+
+    setNomeAula(
+      (encontrada?.nome as string) ||
+      // tolera casos antigos/trocados:
+      (encontrada as any)?.titulo ||
+      ""
+    );
+    setPres(encontrada?.presencas || {});
     setAlunos(arrA);
   }
 
-  useEffect(() => { refreshAlunosAndPresencas(); }, [id, chamadaId]);
+  useEffect(() => {
+    carregar();
+    // sincroniza se outro tab alterar storage
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key) return;
+      if (e.key.includes(`guieduc:chamadas:${id}`) || e.key.includes(`guieduc:alunos:${id}`)) {
+        carregar();
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [id, chamadaId]);
 
   function salvarChamada() {
     const key = `guieduc:chamadas:${id}`;
     const arr = readJSON<Chamada[]>(key, []);
-    const i = arr.findIndex(x => x.id === String(chamadaId));
+    const i = arr.findIndex(x => String(x.id) === String(chamadaId));
     if (i >= 0) {
-      arr[i] = { ...arr[i], nome: nomeAula.trim() || arr[i].nome, presencas: pres };
+      arr[i] = { ...arr[i], nome: (nomeAula || "").trim() || arr[i].nome, presencas: pres };
       writeJSON(key, arr);
       alert("Chamada salva!");
+    } else {
+      alert("Não foi possível localizar a chamada para salvar.");
     }
   }
 
@@ -61,7 +86,7 @@ export default function EditarChamadaPage() {
     if (!confirm("Excluir esta chamada? Essa ação não pode ser desfeita.")) return;
     const key = `guieduc:chamadas:${id}`;
     const arr = readJSON<Chamada[]>(key, []);
-    const next = arr.filter(x => x.id !== String(chamadaId));
+    const next = arr.filter(x => String(x.id) !== String(chamadaId));
     writeJSON(key, next);
     router.push(`/turmas/${id}/chamadas`);
   }
@@ -138,7 +163,7 @@ export default function EditarChamadaPage() {
             className={`w-full flex items-center justify-between px-4 py-3 ${idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"}`}
           >
             <div className="flex-1 min-w-0">
-              <AlunoNameEditor turmaId={id} aluno={a} onSaved={refreshAlunosAndPresencas} />
+              <AlunoNameEditor turmaId={id} aluno={a} onSaved={carregar} />
             </div>
             <input
               type="checkbox"
@@ -177,7 +202,6 @@ export default function EditarChamadaPage() {
         </div>
       </div>
 
-      {/* Botão de excluir chamada no final da página */}
       <div className="mt-6 pt-4 border-t border-gray-100">
         <button
           onClick={excluirChamada}
