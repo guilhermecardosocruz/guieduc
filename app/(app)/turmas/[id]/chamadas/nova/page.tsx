@@ -83,6 +83,7 @@ export default function NovaChamadaPage() {
         <h3 className="text-sm font-semibold mb-2">Lista de alunos ({alunos.length})</h3>
         {/* -mx-4 para faixas irem até a borda do card (compensa o padding do container) */}
         <ul className="-mx-4">
+        <ul className="w-full overflow-hidden rounded-2xl border border-blue-100">
           {alunos.map((a, idx) => (
             <li
               key={a.id}

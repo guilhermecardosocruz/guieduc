@@ -120,6 +120,7 @@ export default function EditarChamadaPage() {
 
       <p className="text-sm font-semibold mb-2">Lista de alunos ({alunosOrdenados.length})</p>
       <ul className="divide-y divide-gray-100 rounded-2xl overflow-hidden">
+        <ul className="w-full overflow-hidden rounded-2xl border border-blue-100">
         {alunosOrdenados.map((a, idx) => (
           <li
             key={a.id}
