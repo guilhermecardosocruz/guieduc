@@ -109,62 +109,52 @@ export default function EditarChamadaPage() {
   );
 
   return (
-    <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
-      {/* TOPO: só o botão Conteúdo alinhado à direita (o título já vem do layout) */}
-      <div className="mx-auto w-full max-w-4xl mb-4 flex items-center justify-end">
-        <Link href={`${base}/chamadas/${chamadaId}/conteudo`} className="btn-primary px-5 py-2">
-          Conteúdo
-        </Link>
+    <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-6">
+      <label className="block text-sm mb-1">Nome da aula</label>
+      <input
+        className="input mb-4"
+        value={nomeAula}
+        onChange={(e)=>setNomeAula(e.target.value)}
+        placeholder="Ex.: Frações — revisão"
+      />
+
+      <p className="text-sm font-semibold mb-2">Lista de alunos ({alunosOrdenados.length})</p>
+      <ul className="divide-y divide-gray-100 rounded-2xl overflow-hidden">
+        {alunosOrdenados.map((a, idx) => (
+          <li
+            key={a.id}
+            className={`flex items-center justify-between py-2 px-4 gap-3 ${idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"}`}
+          >
+            <span className="truncate">{a.nome}</span>
+            <label className="inline-flex items-center gap-2 text-sm shrink-0">
+              <input type="checkbox" checked={!!pres[a.id]} onChange={()=>togglePresenca(a.id)} />
+              Presente
+            </label>
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-4 flex items-center gap-3 flex-wrap sm:flex-nowrap">
+        <button className="btn-primary px-5 shrink-0" onClick={salvarChamada}>Salvar chamada</button>
+        <button
+          className="inline-flex items-center justify-center rounded-2xl border px-4 py-2 font-medium hover:bg-gray-50 shrink-0"
+          onClick={addAlunoManual}
+        >
+          Adicionar aluno
+        </button>
       </div>
 
-      {/* Card principal */}
-      <div className="mx-auto w-full max-w-4xl rounded-2xl border border-gray-100 bg-white p-4 sm:p-6">
-        <label className="block text-sm mb-1">Nome da aula</label>
-        <input
-          className="input mb-4"
-          value={nomeAula}
-          onChange={(e)=>setNomeAula(e.target.value)}
-          placeholder="Ex.: Frações — revisão"
-        />
-
-        <p className="text-sm font-semibold mb-2">Lista de alunos ({alunosOrdenados.length})</p>
-        <ul className="divide-y divide-gray-100 rounded-2xl overflow-hidden">
-          {alunosOrdenados.map((a, idx) => (
-            <li
-              key={a.id}
-              className={`flex items-center justify-between py-2 px-4 gap-3 ${idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"}`}
-            >
-              <span className="truncate">{a.nome}</span>
-              <label className="inline-flex items-center gap-2 text-sm shrink-0">
-                <input type="checkbox" checked={!!pres[a.id]} onChange={()=>togglePresenca(a.id)} />
-                Presente
-              </label>
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-4 flex items-center gap-3 flex-wrap sm:flex-nowrap">
-          <button className="btn-primary px-5 shrink-0" onClick={salvarChamada}>Salvar chamada</button>
-          <button
-            className="inline-flex items-center justify-center rounded-2xl border px-4 py-2 font-medium hover:bg-gray-50 shrink-0"
-            onClick={addAlunoManual}
-          >
-            Adicionar aluno
-          </button>
-        </div>
-
-        <div className="mt-4">
-          <button
-            className="inline-flex items-center justify-center rounded-2xl border px-4 py-2 font-medium hover:bg-gray-50"
-            onClick={importarPlanilha}
-          >
-            Adicionar alunos (CSV/XLSX)
-          </button>
-          <input ref={fileRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={onFile} />
-          <div className="mt-2 flex gap-4 text-sm">
-            <Link href="/templates/alunos.csv" className="underline">planilha padrão (CSV)</Link>
-            <Link href="/templates/alunos.xlsx" className="underline">planilha padrão (XLSX)</Link>
-          </div>
+      <div className="mt-4">
+        <button
+          className="inline-flex items-center justify-center rounded-2xl border px-4 py-2 font-medium hover:bg-gray-50"
+          onClick={importarPlanilha}
+        >
+          Adicionar alunos (CSV/XLSX)
+        </button>
+        <input ref={fileRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={onFile} />
+        <div className="mt-2 flex gap-4 text-sm">
+          <Link href="/templates/alunos.csv" className="underline">planilha padrão (CSV)</Link>
+          <Link href="/templates/alunos.xlsx" className="underline">planilha padrão (XLSX)</Link>
         </div>
       </div>
     </div>
