@@ -1,15 +1,23 @@
-import withPWA from 'next-pwa';
-import runtimeCaching from 'next-pwa/cache.js';
+import nextPwa from "next-pwa";
 
 /** @type {import('next').NextConfig} */
-const baseConfig = { reactStrictMode: true };
-const isDev = process.env.NODE_ENV === 'development';
+const isDev = process.env.NODE_ENV !== "production";
 
-const nextConfig = {   reactStrictMode: true,   experimental: { optimizePackageImports: ["xlsx"] } };
-  dest: 'public',
+const withPWA = nextPwa({
+  dest: "public",
   register: true,
   skipWaiting: true,
-  disable: isDev, // PWA só em produção
-  runtimeCaching,
-  buildExcludes: [/middleware-manifest\.json$/]
-})(baseConfig);
+  // Desabilita PWA no dev; habilita em produção (Vercel)
+  disable: isDev,
+  buildExcludes: [/middleware-manifest\.json$/],
+});
+
+const nextConfig = {
+  reactStrictMode: true,
+  experimental: {
+    // ajuda o bundler com o pacote xlsx
+    optimizePackageImports: ["xlsx"],
+  },
+};
+
+export default withPWA(nextConfig);
