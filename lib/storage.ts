@@ -1,3 +1,17 @@
+// Comparador de nomes: ignora acentos e caixa (A→Z)
+function compareNames(a: string, b: string) {
+  const strip = (s: string) =>
+    (s || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // remove diacríticos (acentos)
+      .toLowerCase()
+      .trim();
+  const na = strip(a);
+  const nb = strip(b);
+  if (na < nb) return -1;
+  if (na > nb) return 1;
+  return 0;
+}
 /**
  * GUIEDUC storage (localStorage) — implementação única e consolidada
  * Tipos e helpers usados em todo o app (turmas, alunos e chamadas).
@@ -31,6 +45,16 @@ function readJSON<T>(key: string, fallback: T): T {
 }
 
 function writeJSON<T>(key: string, value: T) {
+
+// Comparador de nomes: ignora acentos e caixa
+function compareNames(a: string, b: string) {
+  const na = (a || "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  const nb = (b || "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  if (na < nb) return -1;
+  if (na > nb) return 1;
+  return 0;
+}
+
   if (typeof window === "undefined") return;
   localStorage.setItem(key, JSON.stringify(value));
 }
@@ -63,9 +87,9 @@ export function removeTurma(turmaId: string): boolean {
 }
 
 // ----------------- Alunos -----------------
-
 export function listAlunos(turmaId: string): Aluno[] {
-  return readJSON<Aluno[]>(`guieduc:alunos:${turmaId}`, []);
+  const arr = readJSON<Aluno[]>(`guieduc:alunos:`, []);
+  return [...arr].sort((a,b) => compareNames(a.nome, b.nome));
 }
 
 export function addAluno(turmaId: string, nome: string): Aluno {
