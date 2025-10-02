@@ -1,5 +1,5 @@
 "use client";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AlunoNameEditor, { type Aluno } from "@/components/AlunoNameEditor";
@@ -26,6 +26,7 @@ const strip = (s: string) => (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g
 
 export default function EditarChamadaPage() {
   const { id, chamadaId } = useParams<{ id: string; chamadaId: string }>();
+  const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [nomeAula, setNomeAula] = useState("");
@@ -38,7 +39,7 @@ export default function EditarChamadaPage() {
     const arrC = readJSON<Chamada[]>(ckey, []);
     const arrA = readJSON<Aluno[]>(akey, []);
     const c = arrC.find(x => x.id === String(chamadaId));
-    setNomeAula(c?.nome || "");
+    setNomeAula(c?.nome || "");       // <-- já vem com o nome criado e pode editar
     setPres(c?.presencas || {});
     setAlunos(arrA);
   }
@@ -50,10 +51,19 @@ export default function EditarChamadaPage() {
     const arr = readJSON<Chamada[]>(key, []);
     const i = arr.findIndex(x => x.id === String(chamadaId));
     if (i >= 0) {
-      arr[i] = { ...arr[i], nome: nomeAula, presencas: pres };
+      arr[i] = { ...arr[i], nome: nomeAula.trim() || arr[i].nome, presencas: pres };
       writeJSON(key, arr);
       alert("Chamada salva!");
     }
+  }
+
+  function excluirChamada() {
+    if (!confirm("Excluir esta chamada? Essa ação não pode ser desfeita.")) return;
+    const key = `guieduc:chamadas:${id}`;
+    const arr = readJSON<Chamada[]>(key, []);
+    const next = arr.filter(x => x.id !== String(chamadaId));
+    writeJSON(key, next);
+    router.push(`/turmas/${id}/chamadas`);
   }
 
   function addAlunoManual() {
@@ -165,6 +175,17 @@ export default function EditarChamadaPage() {
           <Link href="/templates/alunos.csv" className="underline">planilha padrão (CSV)</Link>
           <Link href="/templates/alunos.xlsx" className="underline">planilha padrão (XLSX)</Link>
         </div>
+      </div>
+
+      {/* Botão de excluir chamada no final da página */}
+      <div className="mt-6 pt-4 border-t border-gray-100">
+        <button
+          onClick={excluirChamada}
+          className="text-red-600 hover:underline"
+          title="Excluir esta chamada"
+        >
+          Excluir chamada
+        </button>
       </div>
     </div>
   );
