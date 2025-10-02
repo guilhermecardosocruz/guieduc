@@ -7,6 +7,7 @@ import AlunoNameEditor, { type Aluno } from "@/components/AlunoNameEditor";
 type Chamada = {
   id: string;
   turmaId: string;
+  numero?: number;        // <- manter!
   nome?: string;
   conteudo?: string;
   presencas?: Record<string, boolean>;
@@ -38,30 +39,16 @@ export default function EditarChamadaPage() {
     const akey = `guieduc:alunos:${id}`;
     const arrC = readJSON<Chamada[]>(ckey, []);
     const arrA = readJSON<Aluno[]>(akey, []);
-
-    const cid = String(chamadaId);
-    const encontrada = arrC.find(x => String(x.id) === cid);
-
-    if (!encontrada) {
-      console.warn("[EditarChamada] chamada não encontrada", { cid, total: arrC.length, arrC });
-    }
-
-    setNomeAula(
-      (encontrada?.nome as string) ||
-      // tolera casos antigos/trocados:
-      (encontrada as any)?.titulo ||
-      ""
-    );
+    const encontrada = arrC.find(x => String(x.id) === String(chamadaId));
+    setNomeAula((encontrada?.nome as string) || (encontrada as any)?.titulo || "");
     setPres(encontrada?.presencas || {});
     setAlunos(arrA);
   }
 
   useEffect(() => {
     carregar();
-    // sincroniza se outro tab alterar storage
     const onStorage = (e: StorageEvent) => {
-      if (!e.key) return;
-      if (e.key.includes(`guieduc:chamadas:${id}`) || e.key.includes(`guieduc:alunos:${id}`)) {
+      if (e.key && (e.key.includes(`guieduc:chamadas:${id}`) || e.key.includes(`guieduc:alunos:${id}`))) {
         carregar();
       }
     };
@@ -74,7 +61,12 @@ export default function EditarChamadaPage() {
     const arr = readJSON<Chamada[]>(key, []);
     const i = arr.findIndex(x => String(x.id) === String(chamadaId));
     if (i >= 0) {
-      arr[i] = { ...arr[i], nome: (nomeAula || "").trim() || arr[i].nome, presencas: pres };
+      const existente = arr[i];
+      arr[i] = {
+        ...existente,
+        nome: (nomeAula || "").trim() || existente.nome,
+        presencas: pres,              // preserva numero, createdAt, etc. via spread
+      };
       writeJSON(key, arr);
       alert("Chamada salva!");
     } else {
@@ -204,7 +196,14 @@ export default function EditarChamadaPage() {
 
       <div className="mt-6 pt-4 border-t border-gray-100">
         <button
-          onClick={excluirChamada}
+          onClick={()=>{
+            if (!confirm("Excluir esta chamada? Essa ação não pode ser desfeita.")) return;
+            const key = `guieduc:chamadas:${id}`;
+            const arr = readJSON<Chamada[]>(key, []);
+            const next = arr.filter(x => String(x.id) !== String(chamadaId));
+            writeJSON(key, next);
+            router.push(`/turmas/${id}/chamadas`);
+          }}
           className="text-red-600 hover:underline"
           title="Excluir esta chamada"
         >

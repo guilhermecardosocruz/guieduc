@@ -1,83 +1,106 @@
 "use client";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
-import { listChamadas, type Chamada } from "@/lib/storage";
 
-type SortOrder = "asc" | "desc";
+type Chamada = {
+  id: string;
+  turmaId: string;
+  numero?: number;        // <- numeração estável
+  nome?: string;
+  conteudo?: string;
+  presencas?: Record<string, boolean>;
+  createdAt: number;
+};
+
+function readJSON<T>(k: string, fb: T): T {
+  if (typeof window === "undefined") return fb;
+  try { const raw = localStorage.getItem(k); return raw ? (JSON.parse(raw) as T) : fb; }
+  catch { return fb; }
+}
+function writeJSON<T>(k: string, v: T) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(k, JSON.stringify(v));
+}
 
 export default function ChamadasHomePage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const base = `/turmas/${id}`;
-  const [order, setOrder] = useState<SortOrder>("desc");
-  const [items, setItems] = useState<Chamada[]>([]);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("guieduc:sort:chamadas");
-      if (saved === "asc" || saved === "desc") setOrder(saved);
-    }
-    setItems(listChamadas(id));
-  }, [id]);
+  const [ordem, setOrdem] = useState<"asc" | "desc">("desc");
+  const [itens, setItens] = useState<Chamada[]>([]);
 
-  const sorted = useMemo(() => {
-    const arr = [...items];
-    arr.sort((a, b) => (order === "asc" ? a.createdAt - b.createdAt : b.createdAt - a.createdAt));
-    return arr;
-  }, [items, order]);
+  // migra números quando faltarem (1..n por createdAt asc)
+  function migrateNumeroIfNeeded(arr: Chamada[]): Chamada[] {
+    if (!arr.length) return arr;
+    if (arr.every(c => typeof c.numero === "number" && c.numero! > 0)) return arr;
 
-  function onChangeOrder(val: SortOrder) {
-    setOrder(val);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("guieduc:sort:chamadas", val);
-    }
+    const byCreated = [...arr].sort((a,b) => a.createdAt - b.createdAt);
+    byCreated.forEach((c, idx) => { if (!c.numero || c.numero <= 0) c.numero = idx + 1; });
+    return byCreated;
   }
 
-  return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4">
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <a href={`${base}`} className="underline text-sm">Voltar para Turma</a>
-        <a href={`${base}/chamadas/nova`} className="btn-primary">Adicionar chamada</a>
+  function carregar() {
+    const key = `guieduc:chamadas:${id}`;
+    let arr = readJSON<Chamada[]>(key, []);
+    const migrated = migrateNumeroIfNeeded(arr);
+    if (migrated !== arr) {
+      // se mudou algo, salva de volta
+      writeJSON(key, migrated);
+      arr = migrated;
+    }
+    setItens(arr);
+  }
 
-        <div className="ml-auto flex items-center gap-2">
-          <label className="text-sm text-gray-600">Ordenar:</label>
-          <select
-            className="input"
-            value={order}
-            onChange={(e)=>onChangeOrder(e.target.value as SortOrder)}
+  useEffect(() => {
+    carregar();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key && e.key.includes(`guieduc:chamadas:${id}`)) carregar();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [id]);
+
+  const ordenadas = useMemo(() => {
+    const clone = [...itens];
+    clone.sort((a, b) => ordem === "asc" ? a.createdAt - b.createdAt : b.createdAt - a.createdAt);
+    return clone;
+  }, [itens, ordem]);
+
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold">Chamadas</h2>
+        <div className="flex items-center gap-2">
+          <button
+            className="inline-flex items-center justify-center rounded-2xl border px-3 py-1.5 text-sm hover:bg-gray-50"
+            onClick={() => setOrdem(o => (o === "asc" ? "desc" : "asc"))}
+            title="Alternar ordem (antigas/novas)"
           >
-            <option value="asc">Crescente (mais antiga → nova)</option>
-            <option value="desc">Decrescente (mais nova → antiga)</option>
-          </select>
+            {ordem === "asc" ? "Antigas → Novas" : "Novas → Antigas"}
+          </button>
+          <Link href={`${base}/chamadas/nova`} className="btn-primary">Adicionar chamada</Link>
         </div>
       </div>
 
-      {sorted.length === 0 ? (
-        <p className="text-sm text-gray-500">Nenhuma chamada criada ainda.</p>
+      {ordenadas.length === 0 ? (
+        <p className="text-sm text-gray-600">Nenhuma chamada criada ainda.</p>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {sorted.map((c, idx) => {
-            const numero = idx + 1; // numeração conforme a ordem atual
-            const date = new Date(c.createdAt);
-            const dataFmt = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-            return (
-              <a
-                key={c.id}
+        <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {ordenadas.map(c => (
+            <li key={c.id} className="rounded-2xl border border-gray-100 p-4 bg-white">
+              <div className="text-sm text-gray-500 mb-1">Aula {c.numero ?? "—"}</div>
+              <div className="font-medium truncate mb-3">{c.nome || "Sem nome"}</div>
+              <Link
                 href={`${base}/chamadas/${c.id}`}
-                className="block rounded-2xl border border-gray-100 bg-white px-4 py-3 hover:bg-gray-50"
+                className="inline-flex items-center justify-center rounded-2xl border px-3 py-1.5 text-sm hover:bg-gray-50"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 text-xs shrink-0">
-                      {numero}
-                    </div>
-                    <div className="font-medium truncate">{c.titulo || "Sem título"}</div>
-                  </div>
-                  <div className="text-xs text-gray-500 shrink-0">{dataFmt}</div>
-                </div>
-              </a>
-            );
-          })}
-        </div>
+                Editar chamada
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

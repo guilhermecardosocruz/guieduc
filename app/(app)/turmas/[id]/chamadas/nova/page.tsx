@@ -7,7 +7,8 @@ import AlunoNameEditor, { type Aluno } from "@/components/AlunoNameEditor";
 type Chamada = {
   id: string;
   turmaId: string;
-  nome?: string;             // <-- garantimos salvar aqui
+  numero?: number;           // <- numeração estável
+  nome?: string;
   conteudo?: string;
   presencas?: Record<string, boolean>;
   createdAt: number;
@@ -55,10 +56,15 @@ export default function NovaChamadaPage() {
     if (!nomeAula.trim()) { alert("Defina o nome da aula."); return; }
     const key = `guieduc:chamadas:${id}`;
     const arr = readJSON<Chamada[]>(key, []);
+    // calcula próximo número estável: usa o MAIOR numero existente + 1; se não houver, usa arr.length + 1
+    const maxNumero = arr.reduce((m, c) => c.numero && c.numero > m ? c.numero : m, 0);
+    const proximoNumero = maxNumero > 0 ? maxNumero + 1 : (arr.length + 1);
+
     const nova: Chamada = {
       id: crypto.randomUUID(),
       turmaId: String(id),
-      nome: nomeAula.trim(), // <-- salva em nome
+      numero: proximoNumero,
+      nome: nomeAula.trim(),
       presencas: pres,
       createdAt: Date.now()
     };
