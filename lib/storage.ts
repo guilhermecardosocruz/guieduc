@@ -156,7 +156,7 @@ export async function addAlunosCSV(turmaId: string, file: File) {
   return ok;
 }
 export async function addAlunosXLSX(turmaId: string, file: File) {
-  const XLSX = await import("xlsx/dist/xlsx.mjs");
+  const XLSX = await import("xlsx");
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: "array" });
   const ws = wb.Sheets[wb.SheetNames[0]];
@@ -298,7 +298,7 @@ export async function addConteudosCSV(turmaId: string, file: File): Promise<numb
   return ok;
 }
 export async function addConteudosXLSX(turmaId: string, file: File): Promise<number> {
-  const XLSX = await import("xlsx/dist/xlsx.mjs");
+  const XLSX = await import("xlsx");
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: "array" });
   const ws = wb.Sheets[wb.SheetNames[0]];
