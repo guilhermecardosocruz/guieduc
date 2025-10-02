@@ -1,5 +1,5 @@
-import DataBackup from "@/components/DataBackup";
 "use client";
+import DataBackup from "@/components/DataBackup";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Brand from "@/components/Brand";
