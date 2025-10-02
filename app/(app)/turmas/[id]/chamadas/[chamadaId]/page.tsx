@@ -110,28 +110,25 @@ export default function EditarChamadaPage() {
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
-      {/* barra topo: link voltar + botão Conteúdo alinhado à direita (logo abaixo do título da turma) */}
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <Link href={`${base}/chamadas`} className="underline">Voltar para Chamadas</Link>
-        <Link
-          href={`${base}/chamadas/${chamadaId}/conteudo`}
-          className="btn-primary px-4 py-2"
-        >
-          Conteúdo
-        </Link>
-      </div>
-
-      {/* card central */}
+      {/* card central (sem o link "Voltar para Chamadas") */}
       <div className="mx-auto w-full max-w-4xl rounded-2xl border border-gray-100 bg-white p-4 sm:p-6">
-        <label className="block text-sm mb-1">Nome da aula</label>
+        {/* linha: Nome da aula (à esquerda) + Conteúdo (à direita) */}
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <label className="block text-sm">Nome da aula</label>
+          <Link
+            href={`${base}/chamadas/${chamadaId}/conteudo`}
+            className="btn-primary px-4 py-2"
+          >
+            Conteúdo
+          </Link>
+        </div>
+
         <input
           className="input mb-4"
           value={nomeAula}
           onChange={(e)=>setNomeAula(e.target.value)}
           placeholder="Ex.: Frações — revisão"
         />
-
-        {/* removido botão de conteúdo daqui, pois ele foi para o topo */}
 
         <p className="text-sm font-semibold mb-2">Lista de alunos ({alunosOrdenados.length})</p>
         <ul className="divide-y divide-gray-100 rounded-2xl overflow-hidden">
