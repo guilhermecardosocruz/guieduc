@@ -109,57 +109,53 @@ export default function EditarChamadaPage() {
   );
 
   return (
-    <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+    <div className="w-full px-2 sm:px-4 lg:px-6 xl:px-8 py-4">
       <div className="mb-3">
         <Link href={`${base}/chamadas`} className="underline">Voltar para Chamadas</Link>
       </div>
 
-      <div className="rounded-2xl border border-gray-100 bg-white p-4">
-        {/* Nome da aula */}
-        <label className="block text-sm mb-1">Nome da aula</label>
-        <input
-          className="input mb-4"
-          value={nomeAula}
-          onChange={(e)=>setNomeAula(e.target.value)}
-          placeholder="Ex.: Frações — revisão"
-        />
-
-        {/* Conteúdo -> BOTÃO */}
-        <label className="block text-sm mb-1">Conteúdo</label>
-        <Link
-          href={`${base}/chamadas/${chamadaId}/conteudo`}
-          className="btn-primary w-full text-center mb-4"
-        >
-          Conteúdo da aula
-        </Link>
-
-        {/* Lista de alunos */}
-        <p className="text-sm font-semibold mb-2">Lista de alunos ({alunosOrdenados.length})</p>
-        <ul className="divide-y divide-gray-100 rounded-2xl overflow-hidden">
-          {alunosOrdenados.map((a, idx) => (
-            <li
-              key={a.id}
-              className={`flex items-center justify-between py-2 px-4 gap-3 ${idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"}`}
+      {/* Seção mais larga: ocupa toda a largura disponível */}
+      <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 lg:p-6">
+        {/* Nome + Conteúdo (botão) */}
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm mb-1">Nome da aula</label>
+            <input
+              className="input"
+              value={nomeAula}
+              onChange={(e)=>setNomeAula(e.target.value)}
+              placeholder="Ex.: Frações — revisão"
+            />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Conteúdo</label>
+            <Link
+              href={`${base}/chamadas/${chamadaId}/conteudo`}
+              className="btn-primary w-full text-center"
             >
-              <span className="truncate">{a.nome}</span>
-              <label className="inline-flex items-center gap-2 text-sm shrink-0">
-                <input type="checkbox" checked={!!pres[a.id]} onChange={()=>togglePresenca(a.id)} />
-                Presente
-              </label>
-            </li>
-          ))}
-        </ul>
-
-        {/* Botões inferiores (igual ao seu layout) */}
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button className="btn-primary" onClick={salvarChamada}>Salvar chamada</button>
-          <button className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border hover:bg-gray-50" onClick={addAlunoManual}>
-            Adicionar aluno
-          </button>
+              Conteúdo da aula
+            </Link>
+          </div>
         </div>
 
+        {/* Botões na mesma linha (sem quebra) */}
+        <div className="mt-4 flex gap-3 flex-nowrap">
+          <button className="btn-primary shrink-0" onClick={salvarChamada}>Salvar chamada</button>
+          <button
+            className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border hover:bg-gray-50 shrink-0"
+            onClick={addAlunoManual}
+          >
+            Adicionar aluno
+          </button>
+          <div className="ml-auto"></div>
+        </div>
+
+        {/* Importar (mantido) */}
         <div className="mt-4">
-          <button className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border hover:bg-gray-50" onClick={importarPlanilha}>
+          <button
+            className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border hover:bg-gray-50"
+            onClick={importarPlanilha}
+          >
             Adicionar alunos (CSV/XLSX)
           </button>
           <input ref={fileRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={onFile} />
@@ -167,6 +163,31 @@ export default function EditarChamadaPage() {
             <Link href="/templates/alunos.csv" className="underline">planilha padrão (CSV)</Link>
             <Link href="/templates/alunos.xlsx" className="underline">planilha padrão (XLSX)</Link>
           </div>
+        </div>
+
+        {/* Lista de alunos em GRID ocupando toda a largura */}
+        <div className="mt-6">
+          <p className="text-sm font-semibold mb-2">
+            Lista de alunos ({alunosOrdenados.length})
+          </p>
+          <ul className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+            {alunosOrdenados.map((a, idx) => (
+              <li
+                key={a.id}
+                className={`${idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"} rounded-xl border border-gray-100 py-2 px-4 flex items-center justify-between`}
+              >
+                <span className="truncate">{a.nome}</span>
+                <label className="inline-flex items-center gap-2 text-sm shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={!!pres[a.id]}
+                    onChange={()=>togglePresenca(a.id)}
+                  />
+                  Presente
+                </label>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </div>
