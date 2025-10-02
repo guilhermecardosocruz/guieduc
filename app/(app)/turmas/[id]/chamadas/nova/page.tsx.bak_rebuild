@@ -1,4 +1,7 @@
 "use client";
+import StudentList from "@/components/chamada/StudentList";
+import { togglePresenca, updateAlunoNome, deleteAluno, getChamada, upsertChamada } from "@/lib/storage/chamadas";
+import 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { listAlunos, addChamada, type Aluno } from "@/lib/storage";
@@ -9,6 +12,9 @@ export default function NovaChamadaPage() {
 
   const [nome, setNome] = useState("");
   const [alunos, setAlunos] = useState<Aluno[]>([]);
+
+{/* Lista de Alunos (com edição inline) */}
+<StudentList turmaId={turmaId} chamadaId={chamadaId} alunos={alunos} onTogglePresenca={(alunoId)=>{ setAlunos(prev=>prev.map(a=>a.id===alunoId?{...a,presente:!a.presente}:a)); }} onRename={(alunoId,novoNome)=>{ setAlunos(prev=>prev.map(a=>a.id===alunoId?{...a,nome:novoNome}:a)); }} onDelete={(alunoId)=>{ setAlunos(prev=>prev.filter(a=>a.id!==alunoId)); }} />
   const [presencas, setPresencas] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
