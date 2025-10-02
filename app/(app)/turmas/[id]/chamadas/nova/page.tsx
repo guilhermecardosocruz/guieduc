@@ -128,17 +128,18 @@ export default function NovaChamadaPage() {
             className={`w-full flex items-center justify-between px-4 py-3 ${idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"}`}
           >
             <span className="truncate">{a.nome}</span>
-            <label className="inline-flex items-center gap-2 text-sm shrink-0">
-              <input
-                type="checkbox"
-                checked={!!pres[a.id]}
-                onChange={() => togglePresenca(a.id)}
-              />
-              Presente
-            </label>
+            <input
+              type="checkbox"
+              className="h-5 w-5 shrink-0"
+              aria-label="Marcar presença"
+              title="Marcado = presente"
+              checked={!!pres[a.id]}
+              onChange={() => togglePresenca(a.id)}
+            />
           </li>
         ))}
       </ul>
+      <p className="mt-2 text-xs text-gray-500">Marque a caixa para indicar presença.</p>
 
       <div className="mt-4 flex items-center gap-3 flex-wrap sm:flex-nowrap">
         <button className="btn-primary px-5 shrink-0" onClick={salvarChamada}>Salvar chamada</button>
