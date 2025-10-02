@@ -1,175 +1,111 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import {
-  listAlunos, addAlunosCSV, addAluno,
-  getChamada, updateChamadaAndConteudo, removeChamada,
-  type Aluno, type Chamada
-} from "@/lib/storage";
-import { parseAlunosFile } from "@/lib/xls";
-import AlunoNameEditor from "@/components/AlunoNameEditor";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+
+type Aluno = { id: string; nome: string; createdAt: number };
+type Chamada = {
+  id: string;
+  turmaId: string;
+  nome?: string;
+  conteudo?: string;
+  presencas?: Record<string, boolean>;
+  createdAt: number;
+};
+
+function readJSON<T>(k: string, fb: T): T {
+  if (typeof window === "undefined") return fb;
+  try { const raw = localStorage.getItem(k); return raw ? JSON.parse(raw) as T : fb; }
+  catch { return fb; }
+}
+function writeJSON<T>(k: string, v: T) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(k, JSON.stringify(v));
+}
 
 export default function EditarChamadaPage() {
-  const { id: turmaId, chamadaId } = useParams<{ id: string; chamadaId: string }>();
+  const { id, chamadaId } = useParams<{ id: string; chamadaId: string }>();
+  const base = `/turmas/${id}`;
+
+  const [chamada, setChamada] = useState<Chamada | null>(null);
   const [alunos, setAlunos] = useState<Aluno[]>([]);
-  const [model, setModel] = useState<Chamada | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [pres, setPres] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    setAlunos(listAlunos(turmaId));
-    setModel(getChamada(turmaId, chamadaId));
-  }, [turmaId, chamadaId]);
+    const ckey = `guieduc:chamadas:${id}`;
+    const akey = `guieduc:alunos:${id}`;
+    const arrC = readJSON<Chamada[]>(ckey, []);
+    const arrA = readJSON<Aluno[]>(akey, []);
+    const c = arrC.find(x => x.id === String(chamadaId)) || null;
+    setChamada(c);
+    setPres(c?.presencas || {});
+    setAlunos(arrA);
+  }, [id, chamadaId]);
 
-  function refreshAfterAlunoChange() {
-    const atual = listAlunos(turmaId);
-    setAlunos(atual);
-    setModel(prev => {
-      if (!prev) return prev;
-      const pres: Record<string, boolean> = {};
-      for (const a of atual) pres[a.id] = prev.presencas[a.id] ?? true;
-      return { ...prev, presencas: pres };
+  function togglePresenca(alunoId: string) {
+    const next = { ...pres, [alunoId]: !pres[alunoId] };
+    setPres(next);
+    // persiste
+    const ckey = `guieduc:chamadas:${id}`;
+    const arr = readJSON<Chamada[]>(ckey, []);
+    const i = arr.findIndex(x => x.id === String(chamadaId));
+    if (i >= 0) {
+      arr[i] = { ...arr[i], presencas: next };
+      writeJSON(ckey, arr);
+    }
+  }
+
+  const alunosOrdenados = useMemo(() => {
+    const strip = (s: string) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+    return [...alunos].sort((a,b)=> {
+      const na = strip(a.nome), nb = strip(b.nome);
+      if (na < nb) return -1; if (na > nb) return 1; return 0;
     });
-  }
-
-  function onToggle(aid: string) {
-    if (!model) return;
-    setModel({ ...model, presencas: { ...model.presencas, [aid]: !model.presencas[aid] } });
-  }
-
-  function onSave() {
-    if (!model) return;
-    const t = model.titulo.trim();
-    if (!t) return alert("Informe o nome da aula.");
-    updateChamadaAndConteudo(turmaId, { ...model, titulo: t, conteudo: model.conteudo.trim() });
-    alert("Chamada atualizada!");
-    if (typeof window !== "undefined") window.location.href = `/turmas/${turmaId}/chamadas`;
-  }
-
-  function onDelete() {
-    if (!confirm("Excluir esta chamada?")) return;
-    removeChamada(turmaId, chamadaId);
-    if (typeof window !== "undefined") window.location.href = `/turmas/${turmaId}/chamadas`;
-  }
-
-  async function onImport(file: File) {
-    const nomes = await parseAlunosFile(file);
-    addAlunosCSV(turmaId, nomes);
-    const atual = listAlunos(turmaId);
-    setAlunos(atual);
-    setModel(prev => {
-      if (!prev) return prev;
-      const pres = { ...prev.presencas };
-      for (const a of atual) if (pres[a.id] === undefined) pres[a.id] = true;
-      return { ...prev, presencas: pres };
-    });
-    if (fileRef.current) fileRef.current.value = "";
-    alert(`${nomes.length} aluno(s) importado(s)`);
-  }
-
-  function onAddAluno() {
-    const nome = prompt("Nome do aluno:");
-    if (!nome) return;
-    const novo = addAluno(turmaId, nome);
-    setAlunos(listAlunos(turmaId));
-    setModel(prev => prev ? { ...prev, presencas: { ...prev.presencas, [novo.id]: true } } : prev);
-  }
-
-  if (!model) {
-    return (
-      <div className="rounded-2xl border border-gray-100 bg-white p-4">
-        <p className="text-sm text-gray-500">Carregando ou chamada não encontrada…</p>
-      </div>
-    );
-  }
+  }, [alunos]);
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4">
-      <div className="mb-4">
-        <a href={`/turmas/${turmaId}/chamadas`} className="underline text-sm">Voltar para Chamadas</a>
+    <div className="mx-auto max-w-3xl px-6 py-8">
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Editar chamada</h1>
+        <Link href={`${base}/chamadas`} className="underline">Voltar para Chamadas</Link>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm mb-1">Nome da aula</label>
-          <input
-            className="input"
-            value={model.titulo}
-            onChange={(e)=>setModel({...model, titulo: e.target.value})}
-          />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Conteúdo</label>
-          <input
-            className="input"
-            value={model.conteudo}
-            onChange={(e)=>setModel({...model, conteudo: e.target.value})}
-          />
+      <div className="rounded-2xl border border-gray-100 bg-white p-4 mb-4">
+        <div className="flex flex-wrap items-center gap-2 justify-between">
+          <p className="text-sm text-gray-600">
+            Turma <b>{id}</b>{chamada?.nome ? <> — Aula: <b>{chamada.nome}</b></> : null}
+          </p>
+          <Link
+            href={`${base}/chamadas/${chamadaId}/conteudo`}
+            className="btn-primary"
+          >
+            Conteúdo da aula
+          </Link>
         </div>
       </div>
 
-      <div className="mt-4">
-        <h3 className="text-sm font-semibold mb-2">Lista de alunos ({alunos.length})</h3>
-        <ul className="-mx-4">
-          {alunos.map((a, idx) => (
+      <div className="rounded-2xl border border-gray-100 bg-white p-4">
+        <h2 className="text-lg font-semibold mb-3">Lista de presença</h2>
+        <ul className="divide-y divide-gray-100 rounded-2xl overflow-hidden">
+          {alunosOrdenados.map((a, idx) => (
             <li
               key={a.id}
-              className={`flex items-center justify-between py-2 px-4 gap-3 ${
-                idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"
-              }`}
+              className={`flex items-center justify-between py-2 px-4 gap-3 ${idx % 2 === 0 ? "bg-blue-50" : "bg-blue-100"}`}
             >
               <div className="flex-1 min-w-0">
-                <AlunoNameEditor
-                  turmaId={turmaId}
-                  aluno={a}
-                  onSaved={refreshAfterAlunoChange}
-                />
+                <span className="block truncate">{a.nome}</span>
               </div>
               <label className="inline-flex items-center gap-2 text-sm shrink-0">
                 <input
                   type="checkbox"
-                  checked={!!model.presencas[a.id]}
-                  onChange={()=>onToggle(a.id)}
+                  checked={!!pres[a.id]}
+                  onChange={() => togglePresenca(a.id)}
                 />
                 Presente
               </label>
             </li>
           ))}
         </ul>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button onClick={onSave} className="btn-primary">Salvar alterações</button>
-
-        <button
-          onClick={onAddAluno}
-          className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border border-[color:var(--color-secondary)] text-[color:var(--color-secondary)] hover:bg-blue-50"
-        >
-          Adicionar aluno
-        </button>
-
-        <label className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border cursor-pointer hover:bg-gray-50">
-          Adicionar alunos (CSV/XLSX)
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
-            className="hidden"
-            onChange={(e)=>{ const f=e.target.files?.[0]; if (f) onImport(f); }}
-          />
-        </label>
-
-        <div className="flex items-center gap-3 text-sm">
-          <a href="/templates/modelo-alunos.csv" className="underline" target="_blank" rel="noreferrer">planilha padrão (CSV)</a>
-          <span className="text-gray-300">|</span>
-          <a href="/templates/modelo-alunos.xlsx" className="underline" target="_blank" rel="noreferrer">planilha padrão (XLSX)</a>
-        </div>
-
-        <button
-          onClick={onDelete}
-          className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border border-red-300 text-red-600 hover:bg-red-50"
-        >
-          Excluir chamada
-        </button>
       </div>
     </div>
   );
