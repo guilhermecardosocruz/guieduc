@@ -17,7 +17,7 @@ function RelatoriosInner() {
   useEffect(() => {
     const all = listTurmas();
     setTurmas(all);
-    if (turmaParam && all.find((t) => t.id === turmaParam)) {
+    if (turmaParam && all.find((t: Turma) => t.id === turmaParam)) {
       setTurmaId(turmaParam);
     } else if (all[0]) {
       setTurmaId(all[0].id);
