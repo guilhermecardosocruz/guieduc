@@ -48,7 +48,6 @@ export default function EditarChamadaPage() {
     setAlunos(arrA);
   }, [id, chamadaId]);
 
-  // Salvar chamada (nome + presenças)
   function salvarChamada() {
     const key = `guieduc:chamadas:${id}`;
     const arr = readJSON<Chamada[]>(key, []);
@@ -60,7 +59,6 @@ export default function EditarChamadaPage() {
     }
   }
 
-  // Adicionar aluno (manual)
   function addAlunoManual() {
     const nome = prompt("Nome do aluno:");
     if (!nome) return;
@@ -72,7 +70,6 @@ export default function EditarChamadaPage() {
     setAlunos(next);
   }
 
-  // Importar planilha (CSV/XLSX)
   function importarPlanilha() {
     fileRef.current?.click();
   }
@@ -121,13 +118,13 @@ export default function EditarChamadaPage() {
   }, [alunos]);
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Editar chamada</h1>
         <Link href={`${base}/chamadas`} className="underline">Voltar para Chamadas</Link>
       </div>
 
-      {/* FORM: mantém layout. Nome da aula = input. Conteúdo = botão */}
+      {/* FORM: Nome da aula (input) + Conteúdo (botão) */}
       <div className="rounded-2xl border border-gray-100 bg-white p-4 mb-4">
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
@@ -151,7 +148,6 @@ export default function EditarChamadaPage() {
           </div>
         </div>
 
-        {/* Botões que já existiam: Salvar chamada / Adicionar aluno / Importar por planilha */}
         <div className="mt-4 flex flex-wrap gap-2">
           <button className="btn-primary" onClick={salvarChamada}>Salvar chamada</button>
           <button className="inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border hover:bg-gray-50" onClick={addAlunoManual}>
@@ -164,7 +160,7 @@ export default function EditarChamadaPage() {
         </div>
       </div>
 
-      {/* Lista de presença (inalterada, com linhas alternadas) */}
+      {/* Lista de presença */}
       <div className="rounded-2xl border border-gray-100 bg-white p-4">
         <h2 className="text-lg font-semibold mb-3">Lista de presença</h2>
         <ul className="divide-y divide-gray-100 rounded-2xl overflow-hidden">
