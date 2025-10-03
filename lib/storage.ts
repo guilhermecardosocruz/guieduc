@@ -16,64 +16,245 @@ function emptyStore(): Store {
   return { turmas: [], alunos: {}, chamadas: {}, conteudos: {} };
 }
 
-/** Tenta validar um objeto genérico como Store */
+function safeParse(json: string | null): any | null {
+  if (!json) return null;
+  try { return JSON.parse(json); } catch { return null; }
+}
+
+/** Heurística: valida forma mínima de Turma/Aluno/Chamada/Conteudo */
+function isTurmaArray(x: any): x is Turma[] {
+  return Array.isArray(x) && x.every(it => it && typeof it.id === "string" && typeof it.nome === "string");
+}
+function isAlunoArray(x: any): x is Aluno[] {
+  return Array.isArray(x) && x.every(it => it && typeof it.id === "string" && typeof it.nome === "string");
+}
+function isChamadaArray(x: any): x is Chamada[] {
+  return Array.isArray(x) && x.every(it => it && typeof it.id === "string" && typeof it.turmaId === "string");
+}
+function isConteudoArray(x: any): x is Conteudo[] {
+  return Array.isArray(x) && x.every(it => it && typeof it.id === "string" && typeof it.turmaId === "string" && typeof it.aula === "number");
+}
+
+/** Normaliza um objeto que já tenha o shape de Store (ou próximo) */
 function normalizeMaybeStore(x: any): Store | null {
   if (!x || typeof x !== "object") return null;
   const s: Store = {
-    turmas: Array.isArray(x.turmas) ? x.turmas as Turma[] : [],
+    turmas: isTurmaArray(x.turmas) ? x.turmas : [],
     alunos: typeof x.alunos === "object" && x.alunos ? x.alunos as Record<ID, Aluno[]> : {},
     chamadas: typeof x.chamadas === "object" && x.chamadas ? x.chamadas as Record<ID, Chamada[]> : {},
     conteudos: typeof x.conteudos === "object" && x.conteudos ? x.conteudos as Record<ID, Conteudo[]> : {},
   };
-  // heurística mínima: turmas é array e elementos têm id/nome
-  if (!Array.isArray(s.turmas)) return null;
-  if (s.turmas.length > 0) {
-    const t0 = s.turmas[0] as any;
-    if (!t0 || typeof t0.id !== "string" || typeof t0.nome !== "string") return null;
-  }
   return s;
 }
 
-/** Procura dados em chaves legadas e migra para LS_KEY */
-function tryMigrateFromLegacy(): Store | null {
-  if (!isBrowser) return null;
-  try {
-    const candidates: string[] = [];
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const k = window.localStorage.key(i);
-      if (!k) continue;
-      if (k === LS_KEY) continue;
-      // priorizar chaves que parecem do projeto
-      const kl = k.toLowerCase();
-      const score =
-        (kl.includes("guieduc") ? 2 : 0) +
-        (kl.includes("store") ? 1 : 0) +
-        (kl.includes("educ") ? 1 : 0);
-      if (score > 0) candidates.push(k);
+/** Constrói um Store agregando dados espalhados em várias chaves */
+function aggregateFromKeys(all: Array<{ key: string; value: any }>): Store | null {
+  const agg: Store = emptyStore();
+
+  // 1) Buscar possíveis turmas em arrays "soltos" ou chaves óbvias
+  for (const { key, value } of all) {
+    if (isTurmaArray(value)) {
+      agg.turmas = mergeTurmas(agg.turmas, value);
+    } else if (key.toLowerCase().includes("turma")) {
+      if (Array.isArray(value) && isTurmaArray(value)) {
+        agg.turmas = mergeTurmas(agg.turmas, value);
+      } else if (value && Array.isArray(value.turmas) && isTurmaArray(value.turmas)) {
+        agg.turmas = mergeTurmas(agg.turmas, value.turmas);
+      }
     }
-    // se não achou nada “parecido”, ainda assim tente todas (último recurso)
-    if (candidates.length === 0) {
-      for (let i = 0; i < window.localStorage.length; i++) {
-        const k = window.localStorage.key(i);
-        if (k && k !== LS_KEY) candidates.push(k);
+  }
+
+  // 2) Coletar alunos/chamadas/conteudos por turma
+  for (const { key, value } of all) {
+    const kl = key.toLowerCase();
+
+    // Alunos
+    if (isAlunoArray(value)) {
+      // tentar inferir turmaId pela própria linha (se os itens tiverem turmaId)
+      // (Aluno não tem turmaId no tipo, então não forçamos o genérico)
+      const byTurma = groupByTurmaIdFromItems(value as Array<{ turmaId?: string }>);
+      if (Object.keys(byTurma).length > 0) {
+        for (const [tid, arr] of Object.entries(byTurma)) {
+          agg.alunos[tid] = mergeAlunos(agg.alunos[tid] ?? [], arr as Aluno[]);
+        }
+      } else {
+        // fallback: extrair do nome da chave: alunos:<turmaId>
+        const tid = extractTurmaFromKey(key);
+        if (tid) {
+          agg.alunos[tid] = mergeAlunos(agg.alunos[tid] ?? [], value);
+        }
+      }
+    } else if (kl.includes("aluno")) {
+      // objetos wrapper
+      if (value && Array.isArray(value.alunos) && isAlunoArray(value.alunos)) {
+        const tid = extractTurmaFromKey(key) || (value.turmaId as string | undefined);
+        if (tid) {
+          agg.alunos[tid] = mergeAlunos(agg.alunos[tid] ?? [], value.alunos);
+        }
       }
     }
 
-    // Avalia candidatos (os mais específicos primeiro)
-    for (const key of candidates) {
-      const raw = window.localStorage.getItem(key!);
-      if (!raw) continue;
-      try {
-        const parsed = JSON.parse(raw);
-        const s = normalizeMaybeStore(parsed);
-        if (s && (s.turmas.length > 0 || Object.keys(s.alunos).length > 0)) {
-          // Migra para a chave canônica e mantém a legada
-          window.localStorage.setItem(LS_KEY, JSON.stringify(s));
-          return s;
+    // Chamadas
+    if (isChamadaArray(value)) {
+      const groups = groupBy<Chamada>(value, x => x.turmaId);
+      for (const [tid, arr] of Object.entries(groups)) {
+        agg.chamadas[tid] = mergeChamadas(agg.chamadas[tid] ?? [], arr);
+      }
+    } else if (kl.includes("chamada")) {
+      if (value && Array.isArray(value.chamadas) && isChamadaArray(value.chamadas)) {
+        const groups = groupBy<Chamada>(value.chamadas, x => x.turmaId);
+        for (const [tid, arr] of Object.entries(groups)) {
+          agg.chamadas[tid] = mergeChamadas(agg.chamadas[tid] ?? [], arr);
         }
-      } catch { /* ignora */ }
+      }
     }
-  } catch { /* ignora */ }
+
+    // Conteúdos
+    if (isConteudoArray(value)) {
+      const groups = groupBy<Conteudo>(value, x => x.turmaId);
+      for (const [tid, arr] of Object.entries(groups)) {
+        agg.conteudos[tid] = mergeConteudos(agg.conteudos[tid] ?? [], arr);
+      }
+    } else if (kl.includes("conteudo")) {
+      if (value && Array.isArray(value.conteudos) && isConteudoArray(value.conteudos)) {
+        const groups = groupBy<Conteudo>(value.conteudos, x => x.turmaId);
+        for (const [tid, arr] of Object.entries(groups)) {
+          agg.conteudos[tid] = mergeConteudos(agg.conteudos[tid] ?? [], arr);
+        }
+      }
+    }
+
+    // Store completo em chaves alternativas óbvias
+    if (kl.includes("guieduc") || kl.includes("store")) {
+      const s = normalizeMaybeStore(value);
+      if (s) {
+        agg.turmas = mergeTurmas(agg.turmas, s.turmas);
+        for (const [tid, arr] of Object.entries(s.alunos)) {
+          agg.alunos[tid] = mergeAlunos(agg.alunos[tid] ?? [], arr);
+        }
+        for (const [tid, arr] of Object.entries(s.chamadas)) {
+          agg.chamadas[tid] = mergeChamadas(agg.chamadas[tid] ?? [], arr);
+        }
+        for (const [tid, arr] of Object.entries(s.conteudos)) {
+          agg.conteudos[tid] = mergeConteudos(agg.conteudos[tid] ?? [], arr);
+        }
+      }
+    }
+  }
+
+  // 3) Turmas placeholder para dados órfãos
+  const tidsFromData = new Set<string>([
+    ...Object.keys(agg.alunos),
+    ...Object.keys(agg.chamadas),
+    ...Object.keys(agg.conteudos),
+  ]);
+  const existingTids = new Set(agg.turmas.map(t => t.id));
+  for (const tid of tidsFromData) {
+    if (!existingTids.has(tid)) {
+      agg.turmas.push({ id: tid, nome: "Turma", createdAt: new Date().toISOString() });
+    }
+  }
+
+  if (agg.turmas.length || Object.keys(agg.alunos).length || Object.keys(agg.chamadas).length || Object.keys(agg.conteudos).length) {
+    // Ordenações consistentes
+    agg.turmas = sortTurmas(agg.turmas);
+    for (const tid of Object.keys(agg.alunos)) {
+      agg.alunos[tid] = sortAlunos(agg.alunos[tid]);
+    }
+    for (const tid of Object.keys(agg.chamadas)) {
+      agg.chamadas[tid] = sortChamadas(agg.chamadas[tid]);
+    }
+    for (const tid of Object.keys(agg.conteudos)) {
+      agg.conteudos[tid] = sortConteudos(agg.conteudos[tid]);
+    }
+    return agg;
+  }
+  return null;
+}
+
+function extractTurmaFromKey(key: string): string | null {
+  // exemplos: alunos:ABC123, alunos_ABC123, turmas/ABC123
+  const m = key.match(/(?:alunos|chamadas|conteudos)[:_\\/|-]([A-Za-z0-9_-]+)/i);
+  return m?.[1] ?? null;
+}
+
+function groupBy<T>(arr: T[], by: (x: T) => string): Record<string, T[]> {
+  return arr.reduce((acc, it) => {
+    const k = by(it);
+    (acc[k] = acc[k] || []).push(it);
+    return acc;
+  }, {} as Record<string, T[]>);
+}
+
+/** Aceita itens que possivelmente tenham turmaId */
+function groupByTurmaIdFromItems<T extends { turmaId?: string }>(arr: T[]): Record<string, T[]> {
+  const withTid = arr.filter(it => typeof it.turmaId === "string") as Array<T & { turmaId: string }>;
+  return groupBy(withTid, it => it.turmaId);
+}
+
+function uniqById<T extends { id: string }>(a: T[], b: T[]): T[] {
+  const map = new Map<string, T>();
+  for (const it of [...a, ...b]) map.set(it.id, it);
+  return [...map.values()];
+}
+
+/* merges e sorts */
+function mergeTurmas(a: Turma[], b: Turma[]) { return uniqById(a, b); }
+function mergeAlunos(a: Aluno[], b: Aluno[]) { return uniqById(a, b); }
+function mergeChamadas(a: Chamada[], b: Chamada[]) { return uniqById(a, b); }
+function mergeConteudos(a: Conteudo[], b: Conteudo[]) { return uniqById(a, b); }
+
+function sortTurmas(t: Turma[]) {
+  return [...t].sort((x, y) => x.nome.localeCompare(y.nome, "pt-BR", { sensitivity: "base" }));
+}
+function sortAlunos(arr: Aluno[]) {
+  return [...arr].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" }));
+}
+function sortChamadas(arr: Chamada[]) {
+  return [...arr].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+function sortConteudos(arr: Conteudo[]) {
+  return [...arr].sort((a, b) => a.aula - b.aula || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+
+/** Procura dados em chaves legadas e migra para LS_KEY (modo hardcore) */
+function tryMigrateFromLegacy(): Store | null {
+  if (!isBrowser) return null;
+
+  // 1) Primeiro: procurar stores diretos em chaves óbvias
+  const likelyKeys = ["guieduc_store", "guieduc", "store", "guieduc_store_v0", "guieduc_v1"];
+  for (const lk of likelyKeys) {
+    const s = normalizeMaybeStore(safeParse(window.localStorage.getItem(lk)));
+    if (s && (s.turmas.length || Object.keys(s.alunos).length)) {
+      console.info("[GUIEDUC] Migração: encontrado store em", lk);
+      window.localStorage.setItem(LS_KEY, JSON.stringify(s));
+      return s;
+    }
+  }
+
+  // 2) Se não achar, varrer TODAS as chaves e agregar
+  const all: Array<{ key: string; value: any }> = [];
+  for (let i = 0; i < window.localStorage.length; i++) {
+    const k = window.localStorage.key(i);
+    if (!k || k === LS_KEY) continue;
+    const v = safeParse(window.localStorage.getItem(k));
+    if (v != null) all.push({ key: k, value: v });
+  }
+
+  const aggregated = aggregateFromKeys(all);
+  if (aggregated) {
+    console.info("[GUIEDUC] Migração agregada concluída:",
+      {
+        turmas: aggregated.turmas.length,
+        alunosTids: Object.keys(aggregated.alunos).length,
+        chamadasTids: Object.keys(aggregated.chamadas).length,
+        conteudosTids: Object.keys(aggregated.conteudos).length,
+      }
+    );
+    window.localStorage.setItem(LS_KEY, JSON.stringify(aggregated));
+    return aggregated;
+  }
+
   return null;
 }
 
@@ -81,21 +262,17 @@ function load(): Store {
   if (!isBrowser) return emptyStore();
   const raw = window.localStorage.getItem(LS_KEY);
   if (!raw) {
-    // tentar migrar de chaves antigas
     const migrated = tryMigrateFromLegacy();
     if (migrated) return migrated;
     return emptyStore();
   }
-  try {
-    const parsed = JSON.parse(raw);
-    const s = normalizeMaybeStore(parsed);
-    return s ?? emptyStore();
-  } catch {
-    // se corrompido, tentar migrar
-    const migrated = tryMigrateFromLegacy();
-    if (migrated) return migrated;
-    return emptyStore();
-  }
+  const parsed = safeParse(raw);
+  const s = normalizeMaybeStore(parsed);
+  if (s) return s;
+
+  const migrated = tryMigrateFromLegacy();
+  if (migrated) return migrated;
+  return emptyStore();
 }
 
 function save(store: Store) {
@@ -109,28 +286,20 @@ function uid(): ID {
 function nowISO() { return new Date().toISOString(); }
 
 /* =================== BACKUP/RESTORE =================== */
-/** Exporta o store atual como JSON (string) */
-export function exportStore(): string {
-  return JSON.stringify(load());
-}
-/** Importa JSON de backup e sobrescreve o store (retorna número de turmas importadas) */
+export function exportStore(): string { return JSON.stringify(load()); }
 export function importStore(json: string): number {
   try {
     const parsed = JSON.parse(json);
     const s = normalizeMaybeStore(parsed) ?? emptyStore();
     save(s);
     return s.turmas.length;
-  } catch {
-    return 0;
-  }
+  } catch { return 0; }
 }
 
 /* =================== TURMAS =================== */
 export function listTurmas(): Turma[] {
   const s = load();
-  return [...s.turmas].sort((a, b) =>
-    a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })
-  );
+  return sortTurmas(s.turmas);
 }
 export function addTurma(nome: string): Turma {
   const s = load();
@@ -155,8 +324,7 @@ export function getTurma(turmaId: ID): Turma | null {
 /* =================== ALUNOS =================== */
 export function listAlunos(turmaId: ID): Aluno[] {
   const s = load();
-  const list = s.alunos[turmaId] ?? [];
-  return [...list].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" }));
+  return sortAlunos(s.alunos[turmaId] ?? []);
 }
 export function addAluno(turmaId: ID, nome: string): Aluno {
   const s = load();
@@ -184,9 +352,7 @@ export function removeAluno(turmaId: ID, alunoId: ID) {
 /* =================== CHAMADAS =================== */
 export function listChamadas(turmaId: ID): Chamada[] {
   const s = load();
-  return (s.chamadas[turmaId] ?? []).sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-  );
+  return sortChamadas(s.chamadas[turmaId] ?? []);
 }
 export function createChamada(turmaId: ID, nome: string): Chamada {
   const s = load();
@@ -256,9 +422,7 @@ export function getAulaNumber(turmaId: ID, chamadaId: ID): number {
 /* =================== CONTEÚDOS =================== */
 export function listConteudos(turmaId: ID): Conteudo[] {
   const s = load();
-  return (s.conteudos[turmaId] ?? []).sort(
-    (a, b) => a.aula - b.aula || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-  );
+  return sortConteudos(s.conteudos[turmaId] ?? []);
 }
 export function getConteudo(turmaId: ID, conteudoId: ID): Conteudo | null {
   const s = load();
