@@ -1,345 +1,311 @@
-/**
- * GUIEDUC – armazenamento local (PWA) com sincronização futura.
- * Tudo aqui usa localStorage em prefixos por entidade/coleção.
- */
+import type { Aluno, Chamada, Conteudo, ID, Turma } from "@/types";
+export type { Aluno, Chamada, Conteudo, Turma } from "@/types";
 
-export type Turma = { id: string; nome: string; createdAt: number };
-export type Aluno = { id: string; nome: string; email?: string; createdAt: number };
+const isBrowser = typeof window !== "undefined";
+const LS_KEY = "guieduc_store_v1";
 
-export type Chamada = {
-  id: string;
-  turmaId: string;
-  createdAt: number;
-  updatedAt: number;
-  /** nome da aula (opcional) */
-  nome?: string;
-  /** mapa alunoId -> presente? */
-  presencas: Record<string, boolean>;
+type Store = {
+  turmas: Turma[];
+  alunos: Record<ID, Aluno[]>;
+  chamadas: Record<ID, Chamada[]>;
+  conteudos: Record<ID, Conteudo[]>;
 };
 
-export type Conteudo = {
-  id: string;
-  turmaId: string;
-  /** número da aula (1,2,3...) */
-  aula: number;
-  titulo: string;
-  conteudo: string;
-  objetivos: string;
-  desenvolvimento: string;
-  recursos: string;
-  bncc: string;
-  createdAt: number;
-  updatedAt: number;
-};
-
-/* ------------------------------------------------------------------ */
-/* utils JSON <-> localStorage                                        */
-/* ------------------------------------------------------------------ */
-
-function readJSON<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
+function load(): Store {
+  if (!isBrowser) return { turmas: [], alunos: {}, chamadas: {}, conteudos: {} };
+  const raw = window.localStorage.getItem(LS_KEY);
+  if (!raw) return { turmas: [], alunos: {}, chamadas: {}, conteudos: {} };
+  try { return JSON.parse(raw) as Store; } catch {
+    return { turmas: [], alunos: {}, chamadas: {}, conteudos: {} };
   }
 }
-
-function writeJSON<T>(key: string, value: T): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    /* ignore */
-  }
+function save(store: Store) {
+  if (!isBrowser) return;
+  window.localStorage.setItem(LS_KEY, JSON.stringify(store));
 }
-
-function uid(): string {
-  return crypto?.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+function uid(): ID {
+  return (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)).toUpperCase();
 }
+function nowISO() { return new Date().toISOString(); }
 
-const K_TURMAS = "guieduc:turmas";
-
-/* ------------------------------------------------------------------ */
-/* Turmas                                                             */
-/* ------------------------------------------------------------------ */
-
+/* =================== TURMAS =================== */
 export function listTurmas(): Turma[] {
-  return readJSON<Turma[]>(K_TURMAS, []);
+  const s = load();
+  return [...s.turmas].sort((a, b) =>
+    a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })
+  );
 }
-
 export function addTurma(nome: string): Turma {
-  const all = listTurmas();
-  const t: Turma = { id: uid(), nome, createdAt: Date.now() };
-  writeJSON(K_TURMAS, [...all, t]);
-  return t;
+  const s = load();
+  const nova: Turma = { id: uid(), nome: nome.trim(), createdAt: nowISO() };
+  s.turmas.push(nova);
+  save(s);
+  return nova;
+}
+export function removeTurma(turmaId: ID) {
+  const s = load();
+  s.turmas = s.turmas.filter(t => t.id !== turmaId);
+  delete s.alunos[turmaId];
+  delete s.chamadas[turmaId];
+  delete s.conteudos[turmaId];
+  save(s);
+}
+export function getTurma(turmaId: ID): Turma | null {
+  const s = load();
+  return s.turmas.find(t => t.id === turmaId) ?? null;
 }
 
-export function removeTurma(id: string): void {
-  const all = listTurmas().filter(t => t.id !== id);
-  writeJSON(K_TURMAS, all);
-  // também limpamos coleções derivadas
-  writeJSON(`guieduc:alunos:${id}`, []);
-  writeJSON(`guieduc:chamadas:${id}`, []);
-  writeJSON(`guieduc:conteudos:${id}`, []);
+/* =================== ALUNOS =================== */
+export function listAlunos(turmaId: ID): Aluno[] {
+  const s = load();
+  const list = s.alunos[turmaId] ?? [];
+  return [...list].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" }));
 }
-
-export function getTurma(id: string): Turma | null {
-  return listTurmas().find(t => t.id === id) ?? null;
+export function addAluno(turmaId: ID, nome: string): Aluno {
+  const s = load();
+  const novo: Aluno = { id: uid(), nome: nome.trim(), createdAt: nowISO() };
+  s.alunos[turmaId] = s.alunos[turmaId] ?? [];
+  s.alunos[turmaId].push(novo);
+  save(s);
+  return novo;
 }
-
-/* ------------------------------------------------------------------ */
-/* Alunos                                                             */
-/* ------------------------------------------------------------------ */
-
-export function listAlunos(turmaId: string): Aluno[] {
-  const arr = readJSON<Aluno[]>(`guieduc:alunos:${turmaId}`, []);
-  // ordenar alfabeticamente (ignora acentos/caixa)
-  const strip = (s: string) =>
-    (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-  return [...arr].sort((a, b) => {
-    const na = strip(a.nome);
-    const nb = strip(b.nome);
-    return na < nb ? -1 : na > nb ? 1 : 0;
-  });
-}
-
-export function addAluno(turmaId: string, nome: string, email?: string): Aluno {
-  const all = readJSON<Aluno[]>(`guieduc:alunos:${turmaId}`, []);
-  const a: Aluno = { id: uid(), nome, email, createdAt: Date.now() };
-  writeJSON(`guieduc:alunos:${turmaId}`, [...all, a]);
-  return a;
-}
-
-export function removeAluno(turmaId: string, alunoId: string): void {
-  const all = readJSON<Aluno[]>(`guieduc:alunos:${turmaId}`, []);
-  writeJSON(`guieduc:alunos:${turmaId}`, all.filter(a => a.id !== alunoId));
-  // remover presença em chamadas existentes
-  const cs = listChamadas(turmaId).map(c => {
-    const clone: Chamada = { ...c, presencas: { ...c.presencas } };
-    delete clone.presencas[alunoId];
-    return clone;
-  });
-  writeJSON(`guieduc:chamadas:${turmaId}`, cs);
-}
-
-/** Importa CSV de alunos – primeira coluna = nome, segunda opcional = email */
-export async function addAlunosCSV(turmaId: string, csvText: string): Promise<number> {
-  const lines = csvText.trim().split(/\r?\n/).filter(Boolean);
-  let count = 0;
-  for (const line of lines) {
-    const [nome, email] = line.split(/[;,]/).map(s => s?.trim() ?? "");
-    if (nome) {
-      addAluno(turmaId, nome, email || undefined);
-      count++;
-    }
+export function updateAluno(turmaId: ID, alunoId: ID, nome: string) {
+  const s = load();
+  const arr = s.alunos[turmaId] ?? [];
+  const idx = arr.findIndex(a => a.id === alunoId);
+  if (idx >= 0) {
+    arr[idx] = { ...arr[idx], nome: nome.trim() };
+    save(s);
   }
-  return count;
+}
+export function removeAluno(turmaId: ID, alunoId: ID) {
+  const s = load();
+  s.alunos[turmaId] = (s.alunos[turmaId] ?? []).filter(a => a.id !== alunoId);
+  save(s);
 }
 
-/** Importa XLSX de alunos – usa a primeira planilha, col A=nome, col B=email(opcional) */
-export async function addAlunosXLSX(turmaId: string, file: File | ArrayBuffer): Promise<number> {
-  const XLSX = await import("xlsx");
-  const ab = file instanceof File ? await file.arrayBuffer() : file;
-  const wb = XLSX.read(new Uint8Array(ab), { type: "array" });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
-  let count = 0;
-  for (const r of rows) {
-    const nome = (r?.[0] ?? "").toString().trim();
-    const email = (r?.[1] ?? "").toString().trim();
-    if (nome) {
-      addAluno(turmaId, nome, email || undefined);
-      count++;
-    }
-  }
-  return count;
+/* =================== CHAMADAS =================== */
+export function listChamadas(turmaId: ID): Chamada[] {
+  const s = load();
+  return (s.chamadas[turmaId] ?? []).sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
 }
-
-/* ------------------------------------------------------------------ */
-/* Chamadas                                                           */
-/* ------------------------------------------------------------------ */
-
-export function listChamadas(turmaId: string): Chamada[] {
-  return readJSON<Chamada[]>(`guieduc:chamadas:${turmaId}`, []);
+export function createChamada(turmaId: ID, nome: string): Chamada {
+  const s = load();
+  const nova: Chamada = {
+    id: uid(),
+    turmaId,
+    nome: nome.trim(),
+    presencas: {},
+    createdAt: nowISO(),
+    updatedAt: nowISO(),
+  };
+  s.chamadas[turmaId] = s.chamadas[turmaId] ?? [];
+  s.chamadas[turmaId].push(nova);
+  save(s);
+  return nova;
 }
-
-/** Cria chamada; aceita { nome?, presencas } */
+/** addChamada compatível com (turmaId, "Nome") e (turmaId, {nome, presencas?}) */
 export function addChamada(
-  turmaId: string,
-  data: Omit<Chamada, "id" | "turmaId" | "createdAt" | "updatedAt" | "presencas"> & {
-    nome?: string;
-    presencas?: Record<string, boolean>;
-  } = {}
+  turmaId: ID,
+  arg: string | { nome: string; presencas?: Record<ID, boolean> }
 ): Chamada {
-  const all = listChamadas(turmaId);
-  const c: Chamada = {
+  const s = load();
+  const nome = typeof arg === "string" ? arg : arg.nome;
+  const presencas = typeof arg === "string" ? {} : (arg.presencas ?? {});
+  const nova: Chamada = {
     id: uid(),
     turmaId,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    nome: data.nome?.trim() || "",
-    presencas: data.presencas ? { ...data.presencas } : {},
+    nome: String(nome).trim(),
+    presencas,
+    createdAt: nowISO(),
+    updatedAt: nowISO(),
   };
-  writeJSON(`guieduc:chamadas:${turmaId}`, [...all, c]);
-  return c;
+  s.chamadas[turmaId] = s.chamadas[turmaId] ?? [];
+  s.chamadas[turmaId].push(nova);
+  save(s);
+  return nova;
+}
+export function getChamada(turmaId: ID, chamadaId: ID): Chamada | null {
+  const s = load();
+  return (s.chamadas[turmaId] ?? []).find(c => c.id === chamadaId) ?? null;
+}
+export function saveChamada(turmaId: ID, chamada: Chamada) {
+  const s = load();
+  const arr = s.chamadas[turmaId] ?? [];
+  const idx = arr.findIndex(c => c.id === chamada.id);
+  const now = nowISO();
+  if (idx >= 0) {
+    arr[idx] = { ...chamada, updatedAt: now };
+  } else {
+    arr.push({ ...chamada, updatedAt: now });
+  }
+  s.chamadas[turmaId] = arr;
+  save(s);
+}
+export function deleteChamada(turmaId: ID, chamadaId: ID) {
+  const s = load();
+  s.chamadas[turmaId] = (s.chamadas[turmaId] ?? []).filter(c => c.id !== chamadaId);
+  save(s);
+}
+/** Número estável de aula pela ordem de criação (1..N) */
+export function getAulaNumber(turmaId: ID, chamadaId: ID): number {
+  const chamadas = listChamadas(turmaId);
+  const idx = chamadas.findIndex(c => c.id === chamadaId);
+  return idx >= 0 ? idx + 1 : -1;
 }
 
-export function getChamada(turmaId: string, chamadaId: string): Chamada | null {
-  return listChamadas(turmaId).find(c => c.id === chamadaId) ?? null;
+/* =================== CONTEÚDOS =================== */
+export function listConteudos(turmaId: ID): Conteudo[] {
+  const s = load();
+  return (s.conteudos[turmaId] ?? []).sort(
+    (a, b) => a.aula - b.aula || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
 }
-
-export function updateChamada(
-  turmaId: string,
-  chamadaId: string,
-  patch: Partial<Pick<Chamada, "nome" | "presencas">>
-): Chamada | null {
-  const all = listChamadas(turmaId);
-  const idx = all.findIndex(c => c.id === chamadaId);
-  if (idx < 0) return null;
-  const prev = all[idx];
-  const next: Chamada = {
-    ...prev,
-    ...patch,
-    presencas: patch.presencas ? { ...patch.presencas } : prev.presencas,
-    updatedAt: Date.now(),
-  };
-  all[idx] = next;
-  writeJSON(`guieduc:chamadas:${turmaId}`, all);
-  return next;
+export function getConteudo(turmaId: ID, conteudoId: ID): Conteudo | null {
+  const s = load();
+  return (s.conteudos[turmaId] ?? []).find(c => c.id === conteudoId) ?? null;
 }
-
-export function removeChamada(turmaId: string, chamadaId: string): void {
-  const all = listChamadas(turmaId).filter(c => c.id !== chamadaId);
-  writeJSON(`guieduc:chamadas:${turmaId}`, all);
-}
-
-/**
- * Número estável da aula baseado na ordem de criação (crescente).
- * Aula 1 = primeira chamada criada; Aula 2 = segunda; ...
- */
-export function getAulaNumber(turmaId: string, chamadaId: string): number | null {
-  const list = [...listChamadas(turmaId)].sort((a, b) => a.createdAt - b.createdAt);
-  const idx = list.findIndex(c => c.id === chamadaId);
-  return idx >= 0 ? idx + 1 : null;
-}
-
-/* ------------------------------------------------------------------ */
-/* Conteúdos                                                          */
-/* ------------------------------------------------------------------ */
-
-export function listConteudos(turmaId: string): Conteudo[] {
-  return readJSON<Conteudo[]>(`guieduc:conteudos:${turmaId}`, []);
-}
-
-export function addConteudo(
-  turmaId: string,
-  data: Omit<Conteudo, "id" | "turmaId" | "createdAt" | "updatedAt">
+export function upsertConteudo(
+  turmaId: ID,
+  c: Omit<Conteudo, "id" | "createdAt" | "updatedAt"> & Partial<Pick<Conteudo, "id">>
 ): Conteudo {
-  const all = listConteudos(turmaId);
-  const c: Conteudo = {
-    id: uid(),
-    turmaId,
-    aula: data.aula,
-    titulo: data.titulo || "",
-    conteudo: data.conteudo || "",
-    objetivos: data.objetivos || "",
-    desenvolvimento: data.desenvolvimento || "",
-    recursos: data.recursos || "",
-    bncc: data.bncc || "",
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-  writeJSON(`guieduc:conteudos:${turmaId}`, [...all, c]);
-  return c;
+  const s = load();
+  s.conteudos[turmaId] = s.conteudos[turmaId] ?? [];
+  const now = nowISO();
+  if (c.id) {
+    const idx = s.conteudos[turmaId].findIndex(x => x.id === c.id);
+    if (idx >= 0) {
+      s.conteudos[turmaId][idx] = { ...s.conteudos[turmaId][idx], ...c, updatedAt: now } as Conteudo;
+      save(s);
+      return s.conteudos[turmaId][idx];
+    }
+  }
+  const novo: Conteudo = { id: uid(), createdAt: now, updatedAt: now, ...c } as Conteudo;
+  s.conteudos[turmaId].push(novo);
+  save(s);
+  return novo;
 }
-
-export function getConteudo(turmaId: string, conteudoId: string): Conteudo | null {
-  return listConteudos(turmaId).find(c => c.id === conteudoId) ?? null;
+/** addConteudo aceita payload com ou sem turmaId, injetando o parâmetro */
+export function addConteudo(
+  turmaId: ID,
+  payload: Omit<Conteudo, "id" | "createdAt" | "updatedAt" | "turmaId"> |
+           Omit<Conteudo, "id" | "createdAt" | "updatedAt">
+): Conteudo {
+  const p = ("turmaId" in payload ? payload : { ...payload, turmaId }) as Omit<Conteudo, "id" | "createdAt" | "updatedAt">;
+  return upsertConteudo(turmaId, p);
 }
-
+/** updateConteudo compatível com (turmaId, conteudo) e (turmaId, conteudoId, patch) */
+export function updateConteudo(turmaId: ID, conteudo: Conteudo): Conteudo;
 export function updateConteudo(
-  turmaId: string,
-  conteudoId: string,
-  patch: Partial<Omit<Conteudo, "id" | "turmaId" | "createdAt">>
-): Conteudo | null {
-  const all = listConteudos(turmaId);
-  const idx = all.findIndex(c => c.id === conteudoId);
-  if (idx < 0) return null;
-  const prev = all[idx];
-  const next: Conteudo = {
-    ...prev,
-    ...patch,
-    updatedAt: Date.now(),
-  };
-  all[idx] = next;
-  writeJSON(`guieduc:conteudos:${turmaId}`, all);
-  return next;
-}
+  turmaId: ID,
+  conteudoId: ID,
+  patch: Partial<Omit<Conteudo, "id" | "turmaId" | "createdAt" | "updatedAt">> & { aula?: number }
+): Conteudo;
+export function updateConteudo(
+  turmaId: ID,
+  a: any,
+  b?: any
+): Conteudo {
+  const s = load();
+  s.conteudos[turmaId] = s.conteudos[turmaId] ?? [];
+  const now = nowISO();
 
-/** Busca um conteúdo pelo número da aula. */
-export function getConteudoByAula(turmaId: string, aula: number): Conteudo | null {
-  const cs = listConteudos(turmaId);
-  return cs.find(c => c.aula === aula) ?? null;
-}
-
-/** Importar CSV de conteúdos – colunas fixas: Aula,Título,Conteúdo,Objetivos,Desenvolvimento,Recursos,BNCC */
-export async function addConteudosCSV(turmaId: string, csvText: string): Promise<number> {
-  const lines = csvText.trim().split(/\r?\n/).filter(Boolean);
-  if (lines.length === 0) return 0;
-  // tenta detectar cabeçalho
-  const header = lines[0].toLowerCase();
-  const start = /aula/.test(header) && /t[ií]tulo|titulo/.test(header) ? 1 : 0;
-  let count = 0;
-  for (let i = start; i < lines.length; i++) {
-    const cols = lines[i].split(/[;,]/).map(s => s?.trim() ?? "");
-    const aula = Number(cols[0] || "0");
-    const titulo = cols[1] || "";
-    const conteudo = cols[2] || "";
-    const objetivos = cols[3] || "";
-    const desenvolvimento = cols[4] || "";
-    const recursos = cols[5] || "";
-    const bncc = cols[6] || "";
-    if (!aula || !titulo) continue;
-    addConteudo(turmaId, { aula, titulo, conteudo, objetivos, desenvolvimento, recursos, bncc });
-    count++;
+  if (typeof a === "string" && b) {
+    const conteudoId: ID = a;
+    const patch = b as Partial<Omit<Conteudo, "id" | "turmaId" | "createdAt" | "updatedAt">> & { aula?: number };
+    const idx = s.conteudos[turmaId].findIndex(x => x.id === conteudoId);
+    if (idx >= 0) {
+      s.conteudos[turmaId][idx] = { ...s.conteudos[turmaId][idx], ...patch, updatedAt: now };
+      save(s);
+      return s.conteudos[turmaId][idx];
+    }
+    throw new Error("Conteúdo não encontrado");
+  } else {
+    const c = a as Conteudo;
+    const idx = s.conteudos[turmaId].findIndex(x => x.id === c.id);
+    if (idx >= 0) {
+      s.conteudos[turmaId][idx] = { ...s.conteudos[turmaId][idx], ...c, updatedAt: now };
+      save(s);
+      return s.conteudos[turmaId][idx];
+    }
+    // se não existir, cria
+    const novo: Conteudo = { ...c, id: c.id ?? uid(), createdAt: now, updatedAt: now };
+    s.conteudos[turmaId].push(novo);
+    save(s);
+    return novo;
   }
-  return count;
+}
+export function removeConteudo(turmaId: ID, conteudoId: ID) {
+  const s = load();
+  s.conteudos[turmaId] = (s.conteudos[turmaId] ?? []).filter(c => c.id !== conteudoId);
+  save(s);
+}
+export function getConteudoByAula(turmaId: ID, aula: number): Conteudo | null {
+  const s = load();
+  return (s.conteudos[turmaId] ?? []).find(c => c.aula === aula) ?? null;
 }
 
-/** Importar XLSX de conteúdos – usa a primeira planilha, colunas como no CSV */
-export async function addConteudosXLSX(turmaId: string, file: File | ArrayBuffer): Promise<number> {
-  const XLSX = await import("xlsx");
-  const ab = file instanceof File ? await file.arrayBuffer() : file;
-  const wb = XLSX.read(new Uint8Array(ab), { type: "array" });
+/* ============= IMPORTAÇÃO (CSV/XLSX) ============= */
+export async function importAlunosFromFile(turmaId: ID, file: File): Promise<number> {
+  const { read, utils } = await importXLSX();
+  const buf = await file.arrayBuffer();
+  const wb = read(buf);
   const ws = wb.Sheets[wb.SheetNames[0]];
-  const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
-  if (!rows.length) return 0;
-  // detecta cabeçalho
-  const first = (rows[0] || []).map((x: any) => (x ?? "").toString().toLowerCase());
-  const hasHeader = first.join(",").includes("aula") && first.join(",").includes("título");
-  const start = hasHeader ? 1 : 0;
+  const rows: any[][] = utils.sheet_to_json(ws, { header: 1, defval: "" });
   let count = 0;
-  for (let i = start; i < rows.length; i++) {
-    const r = rows[i] || [];
-    const aula = Number((r[0] ?? "0").toString());
-    const titulo = (r[1] ?? "").toString();
-    const conteudo = (r[2] ?? "").toString();
-    const objetivos = (r[3] ?? "").toString();
-    const desenvolvimento = (r[4] ?? "").toString();
-    const recursos = (r[5] ?? "").toString();
-    const bncc = (r[6] ?? "").toString();
-    if (!aula || !titulo) continue;
-    addConteudo(turmaId, { aula, titulo, conteudo, objetivos, desenvolvimento, recursos, bncc });
-    count++;
+  for (const r of rows.slice(1)) {
+    const nome = String(r[0] ?? "").trim();
+    if (nome) { addAluno(turmaId, nome); count++; }
+  }
+  return count;
+}
+export async function importConteudosFromFile(turmaId: ID, file: File): Promise<number> {
+  const { read, utils } = await importXLSX();
+  const buf = await file.arrayBuffer();
+  const wb = read(buf);
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows: any[][] = utils.sheet_to_json(ws, { header: 1, defval: "" });
+  return importRowsToConteudos(turmaId, rows);
+}
+/** Wrappers aceitando File ou string (CSV puro) */
+export async function addConteudosCSV(turmaId: ID, fileOrText: File | string): Promise<number> {
+  const { read, utils } = await importXLSX();
+  if (typeof fileOrText === "string") {
+    const wb = read(fileOrText, { type: "string" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows: any[][] = utils.sheet_to_json(ws, { header: 1, defval: "" });
+    return importRowsToConteudos(turmaId, rows);
+  } else {
+    return importConteudosFromFile(turmaId, fileOrText);
+  }
+}
+export async function addConteudosXLSX(turmaId: ID, fileOrText: File | string): Promise<number> {
+  // Para XLSX em string, também funciona pois o read() detecta formato pela opção 'type'
+  return addConteudosCSV(turmaId, fileOrText);
+}
+
+function importRowsToConteudos(turmaId: ID, rows: any[][]): number {
+  // Cabeçalho: Aula, Título, Conteúdo, Objetivos, Desenvolvimento, Recursos, BNCC
+  let count = 0;
+  for (const r of rows.slice(1)) {
+    const aula = Number(r[0]);
+    const titulo = String(r[1] ?? "");
+    const conteudo = String(r[2] ?? "");
+    const objetivos = String(r[3] ?? "");
+    const desenvolvimento = String(r[4] ?? "");
+    const recursos = String(r[5] ?? "");
+    const bncc = String(r[6] ?? "");
+    if (Number.isFinite(aula) && aula > 0) {
+      upsertConteudo(turmaId, { turmaId, aula, titulo, conteudo, objetivos, desenvolvimento, recursos, bncc });
+      count++;
+    }
   }
   return count;
 }
 
-/** Remove um conteúdo pelo id. */
-export function removeConteudo(turmaId: string, conteudoId: string): void {
-  const all = listConteudos(turmaId).filter(c => c.id !== conteudoId);
-  writeJSON(`guieduc:conteudos:${turmaId}`, all);
+async function importXLSX() {
+  const XLSX = await import("xlsx/dist/xlsx.mjs");
+  return { read: XLSX.read, utils: XLSX.utils };
 }
