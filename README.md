@@ -15,3 +15,9 @@ PWA:
 - Service Worker: gerado no build (produção) pelo next-pwa
 
 APIs de autenticação são **mockadas** (apenas para a demo). Troque por NextAuth, JWT ou backend próprio depois.
+
+## Atualização automática ao mudar versão
+- O app compara NEXT_PUBLIC_APP_VERSION (ou commit do Vercel) com um valor salvo em localStorage.
+- Se mudou, ele limpa caches (PWA) e chaves `guieduc:*` do localStorage, pede `SKIP_WAITING` ao SW e recarrega a página.
+- No Vercel, configure o build command como:
+  `NEXT_PUBLIC_APP_VERSION=$VERCEL_GIT_COMMIT_SHA pnpm build`
