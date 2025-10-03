@@ -2,6 +2,7 @@ import type { Aluno, Chamada, Conteudo, ID, Turma } from "@/types";
 export type { Aluno, Chamada, Conteudo, Turma } from "@/types";
 
 const isBrowser = typeof window !== "undefined";
+/** Chave canônica atual */
 const LS_KEY = "guieduc_store_v1";
 
 type Store = {
@@ -11,22 +12,118 @@ type Store = {
   conteudos: Record<ID, Conteudo[]>;
 };
 
+function emptyStore(): Store {
+  return { turmas: [], alunos: {}, chamadas: {}, conteudos: {} };
+}
+
+/** Tenta validar um objeto genérico como Store */
+function normalizeMaybeStore(x: any): Store | null {
+  if (!x || typeof x !== "object") return null;
+  const s: Store = {
+    turmas: Array.isArray(x.turmas) ? x.turmas as Turma[] : [],
+    alunos: typeof x.alunos === "object" && x.alunos ? x.alunos as Record<ID, Aluno[]> : {},
+    chamadas: typeof x.chamadas === "object" && x.chamadas ? x.chamadas as Record<ID, Chamada[]> : {},
+    conteudos: typeof x.conteudos === "object" && x.conteudos ? x.conteudos as Record<ID, Conteudo[]> : {},
+  };
+  // heurística mínima: turmas é array e elementos têm id/nome
+  if (!Array.isArray(s.turmas)) return null;
+  if (s.turmas.length > 0) {
+    const t0 = s.turmas[0] as any;
+    if (!t0 || typeof t0.id !== "string" || typeof t0.nome !== "string") return null;
+  }
+  return s;
+}
+
+/** Procura dados em chaves legadas e migra para LS_KEY */
+function tryMigrateFromLegacy(): Store | null {
+  if (!isBrowser) return null;
+  try {
+    const candidates: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (!k) continue;
+      if (k === LS_KEY) continue;
+      // priorizar chaves que parecem do projeto
+      const kl = k.toLowerCase();
+      const score =
+        (kl.includes("guieduc") ? 2 : 0) +
+        (kl.includes("store") ? 1 : 0) +
+        (kl.includes("educ") ? 1 : 0);
+      if (score > 0) candidates.push(k);
+    }
+    // se não achou nada “parecido”, ainda assim tente todas (último recurso)
+    if (candidates.length === 0) {
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (k && k !== LS_KEY) candidates.push(k);
+      }
+    }
+
+    // Avalia candidatos (os mais específicos primeiro)
+    for (const key of candidates) {
+      const raw = window.localStorage.getItem(key!);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw);
+        const s = normalizeMaybeStore(parsed);
+        if (s && (s.turmas.length > 0 || Object.keys(s.alunos).length > 0)) {
+          // Migra para a chave canônica e mantém a legada
+          window.localStorage.setItem(LS_KEY, JSON.stringify(s));
+          return s;
+        }
+      } catch { /* ignora */ }
+    }
+  } catch { /* ignora */ }
+  return null;
+}
+
 function load(): Store {
-  if (!isBrowser) return { turmas: [], alunos: {}, chamadas: {}, conteudos: {} };
+  if (!isBrowser) return emptyStore();
   const raw = window.localStorage.getItem(LS_KEY);
-  if (!raw) return { turmas: [], alunos: {}, chamadas: {}, conteudos: {} };
-  try { return JSON.parse(raw) as Store; } catch {
-    return { turmas: [], alunos: {}, chamadas: {}, conteudos: {} };
+  if (!raw) {
+    // tentar migrar de chaves antigas
+    const migrated = tryMigrateFromLegacy();
+    if (migrated) return migrated;
+    return emptyStore();
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    const s = normalizeMaybeStore(parsed);
+    return s ?? emptyStore();
+  } catch {
+    // se corrompido, tentar migrar
+    const migrated = tryMigrateFromLegacy();
+    if (migrated) return migrated;
+    return emptyStore();
   }
 }
+
 function save(store: Store) {
   if (!isBrowser) return;
   window.localStorage.setItem(LS_KEY, JSON.stringify(store));
 }
+
 function uid(): ID {
   return (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)).toUpperCase();
 }
 function nowISO() { return new Date().toISOString(); }
+
+/* =================== BACKUP/RESTORE =================== */
+/** Exporta o store atual como JSON (string) */
+export function exportStore(): string {
+  return JSON.stringify(load());
+}
+/** Importa JSON de backup e sobrescreve o store (retorna número de turmas importadas) */
+export function importStore(json: string): number {
+  try {
+    const parsed = JSON.parse(json);
+    const s = normalizeMaybeStore(parsed) ?? emptyStore();
+    save(s);
+    return s.turmas.length;
+  } catch {
+    return 0;
+  }
+}
 
 /* =================== TURMAS =================== */
 export function listTurmas(): Turma[] {
@@ -270,7 +367,6 @@ export async function addConteudosCSV(turmaId: ID, fileOrText: File | string): P
   }
 }
 export async function addConteudosXLSX(turmaId: ID, fileOrText: File | string): Promise<number> {
-  // Para XLSX em string, também funciona pois o read() detecta formato pela opção 'type'
   return addConteudosCSV(turmaId, fileOrText);
 }
 
@@ -293,11 +389,9 @@ function importRowsToConteudos(turmaId: ID, rows: any[][]): number {
   return count;
 }
 
-/** Importação dinâmica ESM para evitar erro de resolução no Vercel/webpack */
+/** Import ESM da raiz do pacote para compatibilidade no Vercel */
 async function importXLSX() {
-  // Importar da raiz do pacote garante resolução em build/edge
   const XLSX = await import("xlsx");
-  // Alguns bundlers expõem default; garantir acesso compatível:
   const mod: any = (XLSX as any).default ?? XLSX;
   return { read: mod.read, utils: mod.utils };
 }
