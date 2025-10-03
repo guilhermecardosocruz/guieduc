@@ -4,6 +4,7 @@ export type { Aluno, Chamada, Conteudo, Turma } from "@/types";
 const isBrowser = typeof window !== "undefined";
 /** Chave canônica atual */
 const LS_KEY = "guieduc_store_v1";
+const LS_BACKUP = "guieduc_store_v1__backup";
 
 type Store = {
   turmas: Turma[];
@@ -21,188 +22,141 @@ function safeParse(json: string | null): any | null {
   try { return JSON.parse(json); } catch { return null; }
 }
 
-/** Heurística: valida forma mínima de Turma/Aluno/Chamada/Conteudo */
+/* =================== TYPE GUARDS (estritos) =================== */
 function isTurmaArray(x: any): x is Turma[] {
-  return Array.isArray(x) && x.every(it => it && typeof it.id === "string" && typeof it.nome === "string");
+  return Array.isArray(x) && x.every(it =>
+    it && typeof it.id === "string" &&
+    typeof it.nome === "string" &&
+    typeof it.createdAt === "string" &&
+    // Campos que NÃO deveriam existir numa Turma
+    typeof (it as any).turmaId === "undefined" &&
+    typeof (it as any).aula === "undefined" &&
+    typeof (it as any).presencas === "undefined"
+  );
 }
 function isAlunoArray(x: any): x is Aluno[] {
-  return Array.isArray(x) && x.every(it => it && typeof it.id === "string" && typeof it.nome === "string");
+  return Array.isArray(x) && x.every(it =>
+    it && typeof it.id === "string" &&
+    typeof it.nome === "string" &&
+    typeof it.createdAt === "string" &&
+    // Aluno não tem turmaId no nosso modelo
+    typeof (it as any).turmaId === "undefined" &&
+    typeof (it as any).aula === "undefined"
+  );
 }
 function isChamadaArray(x: any): x is Chamada[] {
-  return Array.isArray(x) && x.every(it => it && typeof it.id === "string" && typeof it.turmaId === "string");
+  return Array.isArray(x) && x.every(it =>
+    it && typeof it.id === "string" &&
+    typeof it.turmaId === "string" &&
+    typeof it.nome === "string" &&
+    typeof it.createdAt === "string" &&
+    typeof it.updatedAt === "string" &&
+    typeof it.presencas === "object"
+  );
 }
 function isConteudoArray(x: any): x is Conteudo[] {
-  return Array.isArray(x) && x.every(it => it && typeof it.id === "string" && typeof it.turmaId === "string" && typeof it.aula === "number");
+  return Array.isArray(x) && x.every(it =>
+    it && typeof it.id === "string" &&
+    typeof it.turmaId === "string" &&
+    typeof it.aula === "number" &&
+    typeof it.titulo === "string" &&
+    typeof it.createdAt === "string" &&
+    typeof it.updatedAt === "string"
+  );
+}
+function isStrictStore(x: any): x is Store {
+  return x && typeof x === "object" &&
+    isTurmaArray(x.turmas) &&
+    x.alunos && typeof x.alunos === "object" &&
+    x.chamadas && typeof x.chamadas === "object" &&
+    x.conteudos && typeof x.conteudos === "object" &&
+    Object.values(x.alunos).every(isAlunoArray) &&
+    Object.values(x.chamadas).every(isChamadaArray) &&
+    Object.values(x.conteudos).every(isConteudoArray);
 }
 
-/** Normaliza um objeto que já tenha o shape de Store (ou próximo) */
-function normalizeMaybeStore(x: any): Store | null {
-  if (!x || typeof x !== "object") return null;
-  const s: Store = {
-    turmas: isTurmaArray(x.turmas) ? x.turmas : [],
-    alunos: typeof x.alunos === "object" && x.alunos ? x.alunos as Record<ID, Aluno[]> : {},
-    chamadas: typeof x.chamadas === "object" && x.chamadas ? x.chamadas as Record<ID, Chamada[]> : {},
-    conteudos: typeof x.conteudos === "object" && x.conteudos ? x.conteudos as Record<ID, Conteudo[]> : {},
-  };
-  return s;
+/* =================== BACKUP/RESTORE =================== */
+function backupCurrentStoreIfAny() {
+  if (!isBrowser) return;
+  const current = window.localStorage.getItem(LS_KEY);
+  if (current && !window.localStorage.getItem(LS_BACKUP)) {
+    window.localStorage.setItem(LS_BACKUP, current);
+    console.info("[GUIEDUC] Backup criado em", LS_BACKUP);
+  }
+}
+export function restoreBackupStore(): boolean {
+  if (!isBrowser) return false;
+  const raw = window.localStorage.getItem(LS_BACKUP);
+  const parsed = safeParse(raw);
+  if (isStrictStore(parsed)) {
+    window.localStorage.setItem(LS_KEY, JSON.stringify(parsed));
+    console.info("[GUIEDUC] Store restaurado a partir do backup.");
+    return true;
+  }
+  console.warn("[GUIEDUC] Backup inválido ou ausente.");
+  return false;
+}
+export function clearStore() {
+  if (!isBrowser) return;
+  backupCurrentStoreIfAny();
+  window.localStorage.setItem(LS_KEY, JSON.stringify(emptyStore()));
+  console.info("[GUIEDUC] Store limpo (backup preservado).");
 }
 
-/** Constrói um Store agregando dados espalhados em várias chaves */
-function aggregateFromKeys(all: Array<{ key: string; value: any }>): Store | null {
-  const agg: Store = emptyStore();
+/* =================== LOAD/SAVE =================== */
+function save(store: Store) {
+  if (!isBrowser) return;
+  backupCurrentStoreIfAny();
+  window.localStorage.setItem(LS_KEY, JSON.stringify(store));
+}
+function normalizeStoreOrEmpty(x: any): Store {
+  if (isStrictStore(x)) return x;
+  return emptyStore();
+}
 
-  // 1) Buscar possíveis turmas em arrays "soltos" ou chaves óbvias
-  for (const { key, value } of all) {
-    if (isTurmaArray(value)) {
-      agg.turmas = mergeTurmas(agg.turmas, value);
-    } else if (key.toLowerCase().includes("turma")) {
-      if (Array.isArray(value) && isTurmaArray(value)) {
-        agg.turmas = mergeTurmas(agg.turmas, value);
-      } else if (value && Array.isArray(value.turmas) && isTurmaArray(value.turmas)) {
-        agg.turmas = mergeTurmas(agg.turmas, value.turmas);
-      }
-    }
-  }
+/* Migração segura apenas de chaves legadas explícitas e válidas */
+function tryMigrateFromLegacy(): Store | null {
+  if (!isBrowser) return null;
 
-  // 2) Coletar alunos/chamadas/conteudos por turma
-  for (const { key, value } of all) {
-    const kl = key.toLowerCase();
-
-    // Alunos
-    if (isAlunoArray(value)) {
-      // tentar inferir turmaId pela própria linha (se os itens tiverem turmaId)
-      // (Aluno não tem turmaId no tipo, então não forçamos o genérico)
-      const byTurma = groupByTurmaIdFromItems(value as Array<{ turmaId?: string }>);
-      if (Object.keys(byTurma).length > 0) {
-        for (const [tid, arr] of Object.entries(byTurma)) {
-          agg.alunos[tid] = mergeAlunos(agg.alunos[tid] ?? [], arr as Aluno[]);
-        }
-      } else {
-        // fallback: extrair do nome da chave: alunos:<turmaId>
-        const tid = extractTurmaFromKey(key);
-        if (tid) {
-          agg.alunos[tid] = mergeAlunos(agg.alunos[tid] ?? [], value);
-        }
-      }
-    } else if (kl.includes("aluno")) {
-      // objetos wrapper
-      if (value && Array.isArray(value.alunos) && isAlunoArray(value.alunos)) {
-        const tid = extractTurmaFromKey(key) || (value.turmaId as string | undefined);
-        if (tid) {
-          agg.alunos[tid] = mergeAlunos(agg.alunos[tid] ?? [], value.alunos);
-        }
-      }
+  const candidates = ["guieduc_store_v1", "guieduc_store", "guieduc"];
+  for (const key of candidates) {
+    if (key === LS_KEY) continue;
+    const parsed = safeParse(window.localStorage.getItem(key));
+    if (isStrictStore(parsed)) {
+      console.info("[GUIEDUC] Migração segura: copiado de", key);
+      save(parsed);
+      return parsed;
     }
-
-    // Chamadas
-    if (isChamadaArray(value)) {
-      const groups = groupBy<Chamada>(value, x => x.turmaId);
-      for (const [tid, arr] of Object.entries(groups)) {
-        agg.chamadas[tid] = mergeChamadas(agg.chamadas[tid] ?? [], arr);
-      }
-    } else if (kl.includes("chamada")) {
-      if (value && Array.isArray(value.chamadas) && isChamadaArray(value.chamadas)) {
-        const groups = groupBy<Chamada>(value.chamadas, x => x.turmaId);
-        for (const [tid, arr] of Object.entries(groups)) {
-          agg.chamadas[tid] = mergeChamadas(agg.chamadas[tid] ?? [], arr);
-        }
-      }
-    }
-
-    // Conteúdos
-    if (isConteudoArray(value)) {
-      const groups = groupBy<Conteudo>(value, x => x.turmaId);
-      for (const [tid, arr] of Object.entries(groups)) {
-        agg.conteudos[tid] = mergeConteudos(agg.conteudos[tid] ?? [], arr);
-      }
-    } else if (kl.includes("conteudo")) {
-      if (value && Array.isArray(value.conteudos) && isConteudoArray(value.conteudos)) {
-        const groups = groupBy<Conteudo>(value.conteudos, x => x.turmaId);
-        for (const [tid, arr] of Object.entries(groups)) {
-          agg.conteudos[tid] = mergeConteudos(agg.conteudos[tid] ?? [], arr);
-        }
-      }
-    }
-
-    // Store completo em chaves alternativas óbvias
-    if (kl.includes("guieduc") || kl.includes("store")) {
-      const s = normalizeMaybeStore(value);
-      if (s) {
-        agg.turmas = mergeTurmas(agg.turmas, s.turmas);
-        for (const [tid, arr] of Object.entries(s.alunos)) {
-          agg.alunos[tid] = mergeAlunos(agg.alunos[tid] ?? [], arr);
-        }
-        for (const [tid, arr] of Object.entries(s.chamadas)) {
-          agg.chamadas[tid] = mergeChamadas(agg.chamadas[tid] ?? [], arr);
-        }
-        for (const [tid, arr] of Object.entries(s.conteudos)) {
-          agg.conteudos[tid] = mergeConteudos(agg.conteudos[tid] ?? [], arr);
-        }
-      }
-    }
-  }
-
-  // 3) Turmas placeholder para dados órfãos
-  const tidsFromData = new Set<string>([
-    ...Object.keys(agg.alunos),
-    ...Object.keys(agg.chamadas),
-    ...Object.keys(agg.conteudos),
-  ]);
-  const existingTids = new Set(agg.turmas.map(t => t.id));
-  for (const tid of tidsFromData) {
-    if (!existingTids.has(tid)) {
-      agg.turmas.push({ id: tid, nome: "Turma", createdAt: new Date().toISOString() });
-    }
-  }
-
-  if (agg.turmas.length || Object.keys(agg.alunos).length || Object.keys(agg.chamadas).length || Object.keys(agg.conteudos).length) {
-    // Ordenações consistentes
-    agg.turmas = sortTurmas(agg.turmas);
-    for (const tid of Object.keys(agg.alunos)) {
-      agg.alunos[tid] = sortAlunos(agg.alunos[tid]);
-    }
-    for (const tid of Object.keys(agg.chamadas)) {
-      agg.chamadas[tid] = sortChamadas(agg.chamadas[tid]);
-    }
-    for (const tid of Object.keys(agg.conteudos)) {
-      agg.conteudos[tid] = sortConteudos(agg.conteudos[tid]);
-    }
-    return agg;
   }
   return null;
 }
 
-function extractTurmaFromKey(key: string): string | null {
-  // exemplos: alunos:ABC123, alunos_ABC123, turmas/ABC123
-  const m = key.match(/(?:alunos|chamadas|conteudos)[:_\\/|-]([A-Za-z0-9_-]+)/i);
-  return m?.[1] ?? null;
+function load(): Store {
+  if (!isBrowser) return emptyStore();
+
+  // 1) Tenta ler store atual
+  const raw = window.localStorage.getItem(LS_KEY);
+  const parsed = safeParse(raw);
+  if (isStrictStore(parsed)) return parsed;
+
+  // 2) Tenta migrar de chaves legadas seguras
+  const migrated = tryMigrateFromLegacy();
+  if (migrated) return migrated;
+
+  // 3) Se houver backup válido, oferece restauração (não automática)
+  const backup = safeParse(window.localStorage.getItem(LS_BACKUP));
+  if (isStrictStore(backup)) {
+    console.warn("[GUIEDUC] Store inválido, backup disponível em", LS_BACKUP, "— chame restoreBackupStore() para restaurar.");
+  }
+
+  return emptyStore();
 }
 
-function groupBy<T>(arr: T[], by: (x: T) => string): Record<string, T[]> {
-  return arr.reduce((acc, it) => {
-    const k = by(it);
-    (acc[k] = acc[k] || []).push(it);
-    return acc;
-  }, {} as Record<string, T[]>);
+/* =================== UTIL =================== */
+function uid(): ID {
+  return (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)).toUpperCase();
 }
-
-/** Aceita itens que possivelmente tenham turmaId */
-function groupByTurmaIdFromItems<T extends { turmaId?: string }>(arr: T[]): Record<string, T[]> {
-  const withTid = arr.filter(it => typeof it.turmaId === "string") as Array<T & { turmaId: string }>;
-  return groupBy(withTid, it => it.turmaId);
-}
-
-function uniqById<T extends { id: string }>(a: T[], b: T[]): T[] {
-  const map = new Map<string, T>();
-  for (const it of [...a, ...b]) map.set(it.id, it);
-  return [...map.values()];
-}
-
-/* merges e sorts */
-function mergeTurmas(a: Turma[], b: Turma[]) { return uniqById(a, b); }
-function mergeAlunos(a: Aluno[], b: Aluno[]) { return uniqById(a, b); }
-function mergeChamadas(a: Chamada[], b: Chamada[]) { return uniqById(a, b); }
-function mergeConteudos(a: Conteudo[], b: Conteudo[]) { return uniqById(a, b); }
+function nowISO() { return new Date().toISOString(); }
 
 function sortTurmas(t: Turma[]) {
   return [...t].sort((x, y) => x.nome.localeCompare(y.nome, "pt-BR", { sensitivity: "base" }));
@@ -217,80 +171,12 @@ function sortConteudos(arr: Conteudo[]) {
   return [...arr].sort((a, b) => a.aula - b.aula || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }
 
-/** Procura dados em chaves legadas e migra para LS_KEY (modo hardcore) */
-function tryMigrateFromLegacy(): Store | null {
-  if (!isBrowser) return null;
-
-  // 1) Primeiro: procurar stores diretos em chaves óbvias
-  const likelyKeys = ["guieduc_store", "guieduc", "store", "guieduc_store_v0", "guieduc_v1"];
-  for (const lk of likelyKeys) {
-    const s = normalizeMaybeStore(safeParse(window.localStorage.getItem(lk)));
-    if (s && (s.turmas.length || Object.keys(s.alunos).length)) {
-      console.info("[GUIEDUC] Migração: encontrado store em", lk);
-      window.localStorage.setItem(LS_KEY, JSON.stringify(s));
-      return s;
-    }
-  }
-
-  // 2) Se não achar, varrer TODAS as chaves e agregar
-  const all: Array<{ key: string; value: any }> = [];
-  for (let i = 0; i < window.localStorage.length; i++) {
-    const k = window.localStorage.key(i);
-    if (!k || k === LS_KEY) continue;
-    const v = safeParse(window.localStorage.getItem(k));
-    if (v != null) all.push({ key: k, value: v });
-  }
-
-  const aggregated = aggregateFromKeys(all);
-  if (aggregated) {
-    console.info("[GUIEDUC] Migração agregada concluída:",
-      {
-        turmas: aggregated.turmas.length,
-        alunosTids: Object.keys(aggregated.alunos).length,
-        chamadasTids: Object.keys(aggregated.chamadas).length,
-        conteudosTids: Object.keys(aggregated.conteudos).length,
-      }
-    );
-    window.localStorage.setItem(LS_KEY, JSON.stringify(aggregated));
-    return aggregated;
-  }
-
-  return null;
-}
-
-function load(): Store {
-  if (!isBrowser) return emptyStore();
-  const raw = window.localStorage.getItem(LS_KEY);
-  if (!raw) {
-    const migrated = tryMigrateFromLegacy();
-    if (migrated) return migrated;
-    return emptyStore();
-  }
-  const parsed = safeParse(raw);
-  const s = normalizeMaybeStore(parsed);
-  if (s) return s;
-
-  const migrated = tryMigrateFromLegacy();
-  if (migrated) return migrated;
-  return emptyStore();
-}
-
-function save(store: Store) {
-  if (!isBrowser) return;
-  window.localStorage.setItem(LS_KEY, JSON.stringify(store));
-}
-
-function uid(): ID {
-  return (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)).toUpperCase();
-}
-function nowISO() { return new Date().toISOString(); }
-
-/* =================== BACKUP/RESTORE =================== */
+/* =================== API: BACKUP/IMPORT EXPORT =================== */
 export function exportStore(): string { return JSON.stringify(load()); }
 export function importStore(json: string): number {
   try {
-    const parsed = JSON.parse(json);
-    const s = normalizeMaybeStore(parsed) ?? emptyStore();
+    const parsed = safeParse(json);
+    const s = normalizeStoreOrEmpty(parsed);
     save(s);
     return s.turmas.length;
   } catch { return 0; }
