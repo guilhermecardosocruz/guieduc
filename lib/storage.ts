@@ -1,389 +1,348 @@
-import type { Aluno, Chamada, Conteudo, ID, Turma } from "@/types";
-export type { Aluno, Chamada, Conteudo, Turma } from "@/types";
+/**
+ * GUIEDUC – armazenamento local (PWA) com sincronização futura.
+ * localStorage com chaves prefixadas por entidade/coleção.
+ * Compatível com páginas existentes (assinaturas flexíveis).
+ */
 
-const isBrowser = typeof window !== "undefined";
-/** Chave canônica atual */
-const LS_KEY = "guieduc_store_v1";
-const LS_BACKUP = "guieduc_store_v1__backup";
+export type Turma = { id: string; nome: string; createdAt: number };
+export type Aluno = { id: string; nome: string; email?: string; createdAt: number };
 
-type Store = {
-  turmas: Turma[];
-  alunos: Record<ID, Aluno[]>;
-  chamadas: Record<ID, Chamada[]>;
-  conteudos: Record<ID, Conteudo[]>;
+export type Chamada = {
+  id: string;
+  turmaId: string;
+  createdAt: number;
+  updatedAt: number;
+  /** nome da aula (opcional) */
+  nome?: string;
+  /** mapa alunoId -> presente? */
+  presencas: Record<string, boolean>;
 };
 
-function emptyStore(): Store {
-  return { turmas: [], alunos: {}, chamadas: {}, conteudos: {} };
-}
+export type Conteudo = {
+  id: string;
+  turmaId: string;
+  aula: number;
+  titulo: string;
+  conteudo: string;
+  objetivos: string;
+  desenvolvimento: string;
+  recursos: string;
+  bncc: string;
+  createdAt: number;
+  updatedAt: number;
+};
 
-function safeParse(json: string | null): any | null {
-  if (!json) return null;
-  try { return JSON.parse(json); } catch { return null; }
-}
+/* ------------------------------------------------------------------ */
+/* utils JSON <-> localStorage                                        */
+/* ------------------------------------------------------------------ */
 
-/* =================== TYPE GUARDS (estritos) =================== */
-function isTurmaArray(x: any): x is Turma[] {
-  return Array.isArray(x) && x.every(it =>
-    it && typeof it.id === "string" &&
-    typeof it.nome === "string" &&
-    typeof it.createdAt === "string" &&
-    // Campos que NÃO deveriam existir numa Turma
-    typeof (it as any).turmaId === "undefined" &&
-    typeof (it as any).aula === "undefined" &&
-    typeof (it as any).presencas === "undefined"
-  );
-}
-function isAlunoArray(x: any): x is Aluno[] {
-  return Array.isArray(x) && x.every(it =>
-    it && typeof it.id === "string" &&
-    typeof it.nome === "string" &&
-    typeof it.createdAt === "string" &&
-    // Aluno não tem turmaId no nosso modelo
-    typeof (it as any).turmaId === "undefined" &&
-    typeof (it as any).aula === "undefined"
-  );
-}
-function isChamadaArray(x: any): x is Chamada[] {
-  return Array.isArray(x) && x.every(it =>
-    it && typeof it.id === "string" &&
-    typeof it.turmaId === "string" &&
-    typeof it.nome === "string" &&
-    typeof it.createdAt === "string" &&
-    typeof it.updatedAt === "string" &&
-    typeof it.presencas === "object"
-  );
-}
-function isConteudoArray(x: any): x is Conteudo[] {
-  return Array.isArray(x) && x.every(it =>
-    it && typeof it.id === "string" &&
-    typeof it.turmaId === "string" &&
-    typeof it.aula === "number" &&
-    typeof it.titulo === "string" &&
-    typeof it.createdAt === "string" &&
-    typeof it.updatedAt === "string"
-  );
-}
-function isStrictStore(x: any): x is Store {
-  return x && typeof x === "object" &&
-    isTurmaArray(x.turmas) &&
-    x.alunos && typeof x.alunos === "object" &&
-    x.chamadas && typeof x.chamadas === "object" &&
-    x.conteudos && typeof x.conteudos === "object" &&
-    Object.values(x.alunos).every(isAlunoArray) &&
-    Object.values(x.chamadas).every(isChamadaArray) &&
-    Object.values(x.conteudos).every(isConteudoArray);
-}
-
-/* =================== BACKUP/RESTORE =================== */
-function backupCurrentStoreIfAny() {
-  if (!isBrowser) return;
-  const current = window.localStorage.getItem(LS_KEY);
-  if (current && !window.localStorage.getItem(LS_BACKUP)) {
-    window.localStorage.setItem(LS_BACKUP, current);
-    console.info("[GUIEDUC] Backup criado em", LS_BACKUP);
+function readJSON<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
   }
 }
-export function restoreBackupStore(): boolean {
-  if (!isBrowser) return false;
-  const raw = window.localStorage.getItem(LS_BACKUP);
-  const parsed = safeParse(raw);
-  if (isStrictStore(parsed)) {
-    window.localStorage.setItem(LS_KEY, JSON.stringify(parsed));
-    console.info("[GUIEDUC] Store restaurado a partir do backup.");
-    return true;
+
+function writeJSON<T>(key: string, value: T): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* ignore */
   }
-  console.warn("[GUIEDUC] Backup inválido ou ausente.");
-  return false;
-}
-export function clearStore() {
-  if (!isBrowser) return;
-  backupCurrentStoreIfAny();
-  window.localStorage.setItem(LS_KEY, JSON.stringify(emptyStore()));
-  console.info("[GUIEDUC] Store limpo (backup preservado).");
 }
 
-/* =================== LOAD/SAVE =================== */
-function save(store: Store) {
-  if (!isBrowser) return;
-  backupCurrentStoreIfAny();
-  window.localStorage.setItem(LS_KEY, JSON.stringify(store));
-}
-function normalizeStoreOrEmpty(x: any): Store {
-  if (isStrictStore(x)) return x;
-  return emptyStore();
-}
-
-/* Migração segura apenas de chaves legadas explícitas e válidas */
-function tryMigrateFromLegacy(): Store | null {
-  if (!isBrowser) return null;
-
-  const candidates = ["guieduc_store_v1", "guieduc_store", "guieduc"];
-  for (const key of candidates) {
-    if (key === LS_KEY) continue;
-    const parsed = safeParse(window.localStorage.getItem(key));
-    if (isStrictStore(parsed)) {
-      console.info("[GUIEDUC] Migração segura: copiado de", key);
-      save(parsed);
-      return parsed;
-    }
-  }
-  return null;
-}
-
-function load(): Store {
-  if (!isBrowser) return emptyStore();
-
-  // 1) Tenta ler store atual
-  const raw = window.localStorage.getItem(LS_KEY);
-  const parsed = safeParse(raw);
-  if (isStrictStore(parsed)) return parsed;
-
-  // 2) Tenta migrar de chaves legadas seguras
-  const migrated = tryMigrateFromLegacy();
-  if (migrated) return migrated;
-
-  // 3) Se houver backup válido, oferece restauração (não automática)
-  const backup = safeParse(window.localStorage.getItem(LS_BACKUP));
-  if (isStrictStore(backup)) {
-    console.warn("[GUIEDUC] Store inválido, backup disponível em", LS_BACKUP, "— chame restoreBackupStore() para restaurar.");
-  }
-
-  return emptyStore();
-}
-
-/* =================== UTIL =================== */
-function uid(): ID {
+function uid(): string {
   return (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)).toUpperCase();
 }
-function nowISO() { return new Date().toISOString(); }
 
-function sortTurmas(t: Turma[]) {
-  return [...t].sort((x, y) => x.nome.localeCompare(y.nome, "pt-BR", { sensitivity: "base" }));
-}
-function sortAlunos(arr: Aluno[]) {
-  return [...arr].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" }));
-}
-function sortChamadas(arr: Chamada[]) {
-  return [...arr].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-}
-function sortConteudos(arr: Conteudo[]) {
-  return [...arr].sort((a, b) => a.aula - b.aula || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+/* Importação dinâmica de xlsx (compatível com Vercel/Next 15) */
+async function importXLSX() {
+  const XLSX = await import("xlsx");
+  const mod: any = (XLSX as any).default ?? XLSX;
+  return { read: mod.read, utils: mod.utils };
 }
 
-/* =================== API: BACKUP/IMPORT EXPORT =================== */
-export function exportStore(): string { return JSON.stringify(load()); }
-export function importStore(json: string): number {
+/* ------------------------------------------------------------------ */
+/* Migração segura de chave legada (guieduc_store_v1 -> guieduc:*)    */
+/* ------------------------------------------------------------------ */
+const LEGACY_STORE_KEY = "guieduc_store_v1";
+const MIGRATION_MARK = "guieduc:migrated_v1";
+
+type LegacyStore = {
+  turmas?: Array<{ id: string; nome: string; createdAt?: string | number }>;
+  alunos?: Record<string, any[]>;
+  chamadas?: Record<string, any[]>;
+  conteudos?: Record<string, any[]>;
+};
+
+function ensureMigrated() {
+  if (typeof window === "undefined") return;
   try {
-    const parsed = safeParse(json);
-    const s = normalizeStoreOrEmpty(parsed);
-    save(s);
-    return s.turmas.length;
-  } catch { return 0; }
+    if (window.localStorage.getItem(MIGRATION_MARK)) return;
+    const raw = window.localStorage.getItem(LEGACY_STORE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw) as LegacyStore;
+    if (!data || !Array.isArray(data.turmas)) return;
+
+    const legacyTurmas = (data.turmas || []).map(t => ({
+      id: String(t.id),
+      nome: String(t.nome || "Turma"),
+      createdAt: typeof t.createdAt === "number" ? t.createdAt : Date.parse(String(t.createdAt || Date.now())),
+    }));
+    if (legacyTurmas.length) {
+      writeJSON(K_TURMAS, legacyTurmas);
+    }
+
+    for (const t of legacyTurmas) {
+      const tid = t.id;
+
+      const alunosArr = (data.alunos && Array.isArray((data.alunos as any)[tid])) ? (data.alunos as any)[tid] : [];
+      const alunos = alunosArr.map((a: any) => ({
+        id: String(a.id || a.alunoId || a.codigo || a.key || uid()),
+        nome: String(a.nome || a.name || "").trim() || "Aluno",
+        email: a.email ? String(a.email) : undefined,
+        createdAt: typeof a.createdAt === "number" ? a.createdAt : Date.parse(String(a.createdAt || Date.now())),
+      }));
+      if (alunos.length) writeJSON(`guieduc:alunos:${tid}`, alunos);
+
+      const chamadasArr = (data.chamadas && Array.isArray((data.chamadas as any)[tid])) ? (data.chamadas as any)[tid] : [];
+      const chamadas = chamadasArr.map((c: any) => ({
+        id: String(c.id || c.chamadaId || uid()),
+        turmaId: tid,
+        createdAt: typeof c.createdAt === "number" ? c.createdAt : Date.parse(String(c.createdAt || Date.now())),
+        updatedAt: typeof c.updatedAt === "number" ? c.updatedAt : Date.parse(String(c.updatedAt || Date.now())),
+        nome: c.nome ? String(c.nome) : undefined,
+        presencas: typeof c.presencas === "object" && c.presencas ? c.presencas as Record<string, boolean> : {},
+      }));
+      if (chamadas.length) writeJSON(`guieduc:chamadas:${tid}`, chamadas);
+
+      const conteudosArr = (data.conteudos && Array.isArray((data.conteudos as any)[tid])) ? (data.conteudos as any)[tid] : [];
+      const conteudos = conteudosArr.map((c: any) => ({
+        id: String(c.id || c.conteudoId || uid()),
+        turmaId: tid,
+        aula: Number(c.aula || 0),
+        titulo: String(c.titulo || c.title || ""),
+        conteudo: String(c.conteudo || c.content || ""),
+        objetivos: String(c.objetivos || c.goals || ""),
+        desenvolvimento: String(c.desenvolvimento || c.activities || ""),
+        recursos: String(c.recursos || c.resources || ""),
+        bncc: String(c.bncc || ""),
+        createdAt: typeof c.createdAt === "number" ? c.createdAt : Date.parse(String(c.createdAt || Date.now())),
+        updatedAt: typeof c.updatedAt === "number" ? c.updatedAt : Date.parse(String(c.updatedAt || Date.now())),
+      })).filter((c: any) => c.aula > 0 && c.titulo);
+      if (conteudos.length) writeJSON(`guieduc:conteudos:${tid}`, conteudos);
+    }
+
+    window.localStorage.setItem(MIGRATION_MARK, String(Date.now()));
+    console.info("[GUIEDUC] Migração de legado concluída.");
+  } catch {
+    /* ignore erros de migração */
+  }
 }
 
-/* =================== TURMAS =================== */
+/* ------------------------------------------------------------------ */
+/* consts                                                             */
+/* ------------------------------------------------------------------ */
+
+const K_TURMAS = "guieduc:turmas";
+
+/* ------------------------------------------------------------------ */
+/* TURMAS                                                             */
+/* ------------------------------------------------------------------ */
+
 export function listTurmas(): Turma[] {
-  const s = load();
-  return sortTurmas(s.turmas);
+  ensureMigrated();
+  return readJSON<Turma[]>(K_TURMAS, []);
 }
+
 export function addTurma(nome: string): Turma {
-  const s = load();
-  const nova: Turma = { id: uid(), nome: nome.trim(), createdAt: nowISO() };
-  s.turmas.push(nova);
-  save(s);
-  return nova;
-}
-export function removeTurma(turmaId: ID) {
-  const s = load();
-  s.turmas = s.turmas.filter(t => t.id !== turmaId);
-  delete s.alunos[turmaId];
-  delete s.chamadas[turmaId];
-  delete s.conteudos[turmaId];
-  save(s);
-}
-export function getTurma(turmaId: ID): Turma | null {
-  const s = load();
-  return s.turmas.find(t => t.id === turmaId) ?? null;
+  const all = listTurmas();
+  const t: Turma = { id: uid(), nome, createdAt: Date.now() };
+  writeJSON(K_TURMAS, [...all, t]);
+  return t;
 }
 
-/* =================== ALUNOS =================== */
-export function listAlunos(turmaId: ID): Aluno[] {
-  const s = load();
-  return sortAlunos(s.alunos[turmaId] ?? []);
-}
-export function addAluno(turmaId: ID, nome: string): Aluno {
-  const s = load();
-  const novo: Aluno = { id: uid(), nome: nome.trim(), createdAt: nowISO() };
-  s.alunos[turmaId] = s.alunos[turmaId] ?? [];
-  s.alunos[turmaId].push(novo);
-  save(s);
-  return novo;
-}
-export function updateAluno(turmaId: ID, alunoId: ID, nome: string) {
-  const s = load();
-  const arr = s.alunos[turmaId] ?? [];
-  const idx = arr.findIndex(a => a.id === alunoId);
-  if (idx >= 0) {
-    arr[idx] = { ...arr[idx], nome: nome.trim() };
-    save(s);
-  }
-}
-export function removeAluno(turmaId: ID, alunoId: ID) {
-  const s = load();
-  s.alunos[turmaId] = (s.alunos[turmaId] ?? []).filter(a => a.id !== alunoId);
-  save(s);
+export function removeTurma(id: string): void {
+  const all = listTurmas().filter(t => t.id !== id);
+  writeJSON(K_TURMAS, all);
+  // limpar coleções derivadas
+  writeJSON(`guieduc:alunos:${id}`, []);
+  writeJSON(`guieduc:chamadas:${id}`, []);
+  writeJSON(`guieduc:conteudos:${id}`, []);
 }
 
-/* =================== CHAMADAS =================== */
-export function listChamadas(turmaId: ID): Chamada[] {
-  const s = load();
-  return sortChamadas(s.chamadas[turmaId] ?? []);
+export function getTurma(id: string): Turma | null {
+  return listTurmas().find(t => t.id === id) ?? null;
 }
-export function createChamada(turmaId: ID, nome: string): Chamada {
-  const s = load();
-  const nova: Chamada = {
-    id: uid(),
-    turmaId,
-    nome: nome.trim(),
-    presencas: {},
-    createdAt: nowISO(),
-    updatedAt: nowISO(),
-  };
-  s.chamadas[turmaId] = s.chamadas[turmaId] ?? [];
-  s.chamadas[turmaId].push(nova);
-  save(s);
-  return nova;
+
+/* ------------------------------------------------------------------ */
+/* ALUNOS                                                             */
+/* ------------------------------------------------------------------ */
+
+export function listAlunos(turmaId: string): Aluno[] {
+  const all = readJSON<Aluno[]>(`guieduc:alunos:${turmaId}`, []);
+  return [...all].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" }));
 }
-/** addChamada compatível com (turmaId, "Nome") e (turmaId, {nome, presencas?}) */
+
+export function addAluno(turmaId: string, nome: string, email?: string): Aluno {
+  const all = listAlunos(turmaId);
+  const a: Aluno = { id: uid(), nome, email, createdAt: Date.now() };
+  writeJSON(`guieduc:alunos:${turmaId}`, [...all, a]);
+  return a;
+}
+
+/** updateAluno compatível com:
+ *  - (turmaId, alunoId, "Novo Nome")
+ *  - (turmaId, alunoId, { nome?: string, email?: string })
+ */
+export function updateAluno(turmaId: string, alunoId: string, patch: Partial<Aluno> | string): void {
+  const all = listAlunos(turmaId).map(a => {
+    if (a.id !== alunoId) return a;
+    if (typeof patch === "string") {
+      return { ...a, nome: patch.trim() };
+    }
+    const p = { ...patch };
+    if (typeof p.nome === "string") p.nome = p.nome.trim();
+    return { ...a, ...p };
+  });
+  writeJSON(`guieduc:alunos:${turmaId}`, all);
+}
+
+export function removeAluno(turmaId: string, alunoId: string): void {
+  const all = listAlunos(turmaId).filter(a => a.id !== alunoId);
+  writeJSON(`guieduc:alunos:${turmaId}`, all);
+}
+
+/* ------------------------------------------------------------------ */
+/* CHAMADAS                                                           */
+/* ------------------------------------------------------------------ */
+
+export function listChamadas(turmaId: string): Chamada[] {
+  return readJSON<Chamada[]>(`guieduc:chamadas:${turmaId}`, [])
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export function getChamada(turmaId: string, chamadaId: string): Chamada | null {
+  return listChamadas(turmaId).find(c => c.id === chamadaId) ?? null;
+}
+
+/** addChamada compatível com:
+ *  - (turmaId, "Nome")
+ *  - (turmaId, { nome: string, presencas?: Record<string,boolean> })
+ */
 export function addChamada(
-  turmaId: ID,
-  arg: string | { nome: string; presencas?: Record<ID, boolean> }
+  turmaId: string,
+  arg?: string | { nome: string; presencas?: Record<string, boolean> }
 ): Chamada {
-  const s = load();
-  const nome = typeof arg === "string" ? arg : arg.nome;
-  const presencas = typeof arg === "string" ? {} : (arg.presencas ?? {});
-  const nova: Chamada = {
+  const all = listChamadas(turmaId);
+  const nome = typeof arg === "string" ? arg : arg?.nome;
+  const presencas = (typeof arg === "object" && arg?.presencas) ? arg.presencas : {};
+  const c: Chamada = {
     id: uid(),
     turmaId,
-    nome: String(nome).trim(),
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    nome: nome?.trim() || undefined,
     presencas,
-    createdAt: nowISO(),
-    updatedAt: nowISO(),
   };
-  s.chamadas[turmaId] = s.chamadas[turmaId] ?? [];
-  s.chamadas[turmaId].push(nova);
-  save(s);
-  return nova;
+  writeJSON(`guieduc:chamadas:${turmaId}`, [...all, c]);
+  return c;
 }
-export function getChamada(turmaId: ID, chamadaId: ID): Chamada | null {
-  const s = load();
-  return (s.chamadas[turmaId] ?? []).find(c => c.id === chamadaId) ?? null;
+
+/** Atualiza uma chamada existente. */
+export function saveChamada(turmaId: string, chamada: Chamada): void {
+  const all = listChamadas(turmaId).map(c => c.id === chamada.id ? { ...chamada, updatedAt: Date.now() } : c);
+  writeJSON(`guieduc:chamadas:${turmaId}`, all);
 }
-export function saveChamada(turmaId: ID, chamada: Chamada) {
-  const s = load();
-  const arr = s.chamadas[turmaId] ?? [];
-  const idx = arr.findIndex(c => c.id === chamada.id);
-  const now = nowISO();
-  if (idx >= 0) {
-    arr[idx] = { ...chamada, updatedAt: now };
-  } else {
-    arr.push({ ...chamada, updatedAt: now });
-  }
-  s.chamadas[turmaId] = arr;
-  save(s);
+
+/** Exclui uma chamada. */
+export function deleteChamada(turmaId: string, chamadaId: string): void {
+  const all = listChamadas(turmaId).filter(c => c.id !== chamadaId);
+  writeJSON(`guieduc:chamadas:${turmaId}`, all);
 }
-export function deleteChamada(turmaId: ID, chamadaId: ID) {
-  const s = load();
-  s.chamadas[turmaId] = (s.chamadas[turmaId] ?? []).filter(c => c.id !== chamadaId);
-  save(s);
-}
-/** Número estável de aula pela ordem de criação (1..N) */
-export function getAulaNumber(turmaId: ID, chamadaId: ID): number {
-  const chamadas = listChamadas(turmaId);
-  const idx = chamadas.findIndex(c => c.id === chamadaId);
+
+/** Número estável de aula (1..N) pela ordem de criação. */
+export function getAulaNumber(turmaId: string, chamadaId: string): number {
+  const arr = listChamadas(turmaId);
+  const idx = arr.findIndex(c => c.id === chamadaId);
   return idx >= 0 ? idx + 1 : -1;
 }
 
-/* =================== CONTEÚDOS =================== */
-export function listConteudos(turmaId: ID): Conteudo[] {
-  const s = load();
-  return sortConteudos(s.conteudos[turmaId] ?? []);
+/* ------------------------------------------------------------------ */
+/* CONTEÚDOS                                                          */
+/* ------------------------------------------------------------------ */
+
+export function listConteudos(turmaId: string): Conteudo[] {
+  return readJSON<Conteudo[]>(`guieduc:conteudos:${turmaId}`, [])
+    .sort((a, b) => a.aula - b.aula || a.createdAt - b.createdAt);
 }
-export function getConteudo(turmaId: ID, conteudoId: ID): Conteudo | null {
-  const s = load();
-  return (s.conteudos[turmaId] ?? []).find(c => c.id === conteudoId) ?? null;
+
+export function getConteudo(turmaId: string, conteudoId: string): Conteudo | null {
+  return listConteudos(turmaId).find(c => c.id === conteudoId) ?? null;
 }
-export function upsertConteudo(
-  turmaId: ID,
-  c: Omit<Conteudo, "id" | "createdAt" | "updatedAt"> & Partial<Pick<Conteudo, "id">>
-): Conteudo {
-  const s = load();
-  s.conteudos[turmaId] = s.conteudos[turmaId] ?? [];
-  const now = nowISO();
-  if (c.id) {
-    const idx = s.conteudos[turmaId].findIndex(x => x.id === c.id);
-    if (idx >= 0) {
-      s.conteudos[turmaId][idx] = { ...s.conteudos[turmaId][idx], ...c, updatedAt: now } as Conteudo;
-      save(s);
-      return s.conteudos[turmaId][idx];
-    }
+
+/** Busca conteúdo pela numeração estável da aula */
+export function getConteudoByAula(turmaId: string, aula: number): Conteudo | null {
+  if (!Number.isFinite(aula) || aula <= 0) return null;
+  return listConteudos(turmaId).find(c => c.aula === aula) ?? null;
+}
+
+/** updateConteudo (upsert) pela dupla (turmaId, conteudoId). */
+export function updateConteudo(turmaId: string, conteudoId: string, patch: Partial<Conteudo>): Conteudo {
+  const all = listConteudos(turmaId);
+  const now = Date.now();
+  const idx = all.findIndex(c => c.id === conteudoId);
+  if (idx >= 0) {
+    all[idx] = { ...all[idx], ...patch, updatedAt: now };
+    writeJSON(`guieduc:conteudos:${turmaId}`, all);
+    return all[idx];
   }
-  const novo: Conteudo = { id: uid(), createdAt: now, updatedAt: now, ...c } as Conteudo;
-  s.conteudos[turmaId].push(novo);
-  save(s);
+  const novo: Conteudo = {
+    id: conteudoId,
+    turmaId,
+    aula: Number((patch.aula ?? 0)),
+    titulo: String(patch.titulo ?? ""),
+    conteudo: String(patch.conteudo ?? ""),
+    objetivos: String(patch.objetivos ?? ""),
+    desenvolvimento: String(patch.desenvolvimento ?? ""),
+    recursos: String(patch.recursos ?? ""),
+    bncc: String(patch.bncc ?? ""),
+    createdAt: now,
+    updatedAt: now,
+  };
+  writeJSON(`guieduc:conteudos:${turmaId}`, [...all, novo]);
   return novo;
 }
-/** addConteudo aceita payload com ou sem turmaId, injetando o parâmetro */
+
+/** addConteudo aceita payload com ou sem turmaId (injeta automaticamente). */
 export function addConteudo(
-  turmaId: ID,
-  payload: Omit<Conteudo, "id" | "createdAt" | "updatedAt" | "turmaId"> |
-           Omit<Conteudo, "id" | "createdAt" | "updatedAt">
+  turmaId: string,
+  data:
+    | Omit<Conteudo, "id" | "createdAt" | "updatedAt" | "turmaId">
+    | Omit<Conteudo, "id" | "createdAt" | "updatedAt">
 ): Conteudo {
-  const p = ("turmaId" in payload ? payload : { ...payload, turmaId }) as Omit<Conteudo, "id" | "createdAt" | "updatedAt">;
-  return upsertConteudo(turmaId, p);
-}
-/** updateConteudo compatível com (turmaId, conteudo) e (turmaId, conteudoId, patch) */
-export function updateConteudo(turmaId: ID, conteudo: any, patch?: any): Conteudo {
-  const s = load();
-  s.conteudos[turmaId] = s.conteudos[turmaId] ?? [];
-  const now = nowISO();
-
-  if (typeof conteudo === "string" && patch) {
-    const conteudoId: ID = conteudo;
-    const idx = s.conteudos[turmaId].findIndex(x => x.id === conteudoId);
-    if (idx >= 0) {
-      s.conteudos[turmaId][idx] = { ...s.conteudos[turmaId][idx], ...patch, updatedAt: now };
-      save(s);
-      return s.conteudos[turmaId][idx];
-    }
-    throw new Error("Conteúdo não encontrado");
-  } else {
-    const c = conteudo as Conteudo;
-    const idx = s.conteudos[turmaId].findIndex(x => x.id === c.id);
-    if (idx >= 0) {
-      s.conteudos[turmaId][idx] = { ...s.conteudos[turmaId][idx], ...c, updatedAt: now };
-      save(s);
-      return s.conteudos[turmaId][idx];
-    }
-    const novo: Conteudo = { ...c, id: c.id ?? uid(), createdAt: now, updatedAt: now };
-    s.conteudos[turmaId].push(novo);
-    save(s);
-    return novo;
-  }
-}
-export function removeConteudo(turmaId: ID, conteudoId: ID) {
-  const s = load();
-  s.conteudos[turmaId] = (s.conteudos[turmaId] ?? []).filter(c => c.id !== conteudoId);
-  save(s);
-}
-export function getConteudoByAula(turmaId: ID, aula: number): Conteudo | null {
-  const s = load();
-  return (s.conteudos[turmaId] ?? []).find(c => c.aula === aula) ?? null;
+  const id = uid();
+  const payload = ("turmaId" in (data as any)) ? (data as any) : { ...(data as any), turmaId };
+  return updateConteudo(turmaId, id, payload);
 }
 
-/* ============= IMPORTAÇÃO (CSV/XLSX) ============= */
-export async function importAlunosFromFile(turmaId: ID, file: File): Promise<number> {
+/** Remove um conteúdo pelo id. */
+export function removeConteudo(turmaId: string, conteudoId: string): void {
+  const all = listConteudos(turmaId).filter(c => c.id !== conteudoId);
+  writeJSON(`guieduc:conteudos:${turmaId}`, all);
+}
+
+/* ------------------------------------------------------------------ */
+/* Importações (Alunos/Conteúdos)                                     */
+/* ------------------------------------------------------------------ */
+
+/** Importa alunos a partir de um arquivo (CSV/XLSX). */
+export async function importAlunosFromFile(turmaId: string, file: File): Promise<number> {
   const { read, utils } = await importXLSX();
   const buf = await file.arrayBuffer();
   const wb = read(buf);
@@ -392,56 +351,50 @@ export async function importAlunosFromFile(turmaId: ID, file: File): Promise<num
   let count = 0;
   for (const r of rows.slice(1)) {
     const nome = String(r[0] ?? "").trim();
-    if (nome) { addAluno(turmaId, nome); count++; }
+    const email = String(r[1] ?? "").trim() || undefined;
+    if (nome) { addAluno(turmaId, nome, email); count++; }
   }
   return count;
 }
-export async function importConteudosFromFile(turmaId: ID, file: File): Promise<number> {
+
+/** Importa conteúdos via CSV (texto) */
+export async function addConteudosCSV(turmaId: string, csvText: string): Promise<number> {
   const { read, utils } = await importXLSX();
-  const buf = await file.arrayBuffer();
-  const wb = read(buf);
+  const wb = read(csvText, { type: "string" });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows: any[][] = utils.sheet_to_json(ws, { header: 1, defval: "" });
   return importRowsToConteudos(turmaId, rows);
 }
-/** Wrappers aceitando File ou string (CSV puro) */
-export async function addConteudosCSV(turmaId: ID, fileOrText: File | string): Promise<number> {
+
+/** Importa conteúdos via XLSX (File ou string) */
+export async function addConteudosXLSX(turmaId: string, file: File | string): Promise<number> {
   const { read, utils } = await importXLSX();
-  if (typeof fileOrText === "string") {
-    const wb = read(fileOrText, { type: "string" });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows: any[][] = utils.sheet_to_json(ws, { header: 1, defval: "" });
-    return importRowsToConteudos(turmaId, rows);
+  let wb: any;
+  if (typeof file === "string") {
+    wb = read(file, { type: "string" });
   } else {
-    return importConteudosFromFile(turmaId, fileOrText);
+    const buf = await file.arrayBuffer();
+    wb = read(buf);
   }
-}
-export async function addConteudosXLSX(turmaId: ID, fileOrText: File | string): Promise<number> {
-  return addConteudosCSV(turmaId, fileOrText);
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows: any[][] = utils.sheet_to_json(ws, { header: 1, defval: "" });
+  return importRowsToConteudos(turmaId, rows);
 }
 
-function importRowsToConteudos(turmaId: ID, rows: any[][]): number {
-  // Cabeçalho: Aula, Título, Conteúdo, Objetivos, Desenvolvimento, Recursos, BNCC
+function importRowsToConteudos(turmaId: string, rows: any[][]): number {
   let count = 0;
+  // Cabeçalho: Aula, Título, Conteúdo, Objetivos, Desenvolvimento, Recursos, BNCC
   for (const r of rows.slice(1)) {
-    const aula = Number(r[0]);
-    const titulo = String(r[1] ?? "");
-    const conteudo = String(r[2] ?? "");
-    const objetivos = String(r[3] ?? "");
-    const desenvolvimento = String(r[4] ?? "");
-    const recursos = String(r[5] ?? "");
-    const bncc = String(r[6] ?? "");
-    if (Number.isFinite(aula) && aula > 0) {
-      upsertConteudo(turmaId, { turmaId, aula, titulo, conteudo, objetivos, desenvolvimento, recursos, bncc });
-      count++;
-    }
+    const aula = Number((r[0] ?? "0").toString());
+    const titulo = (r[1] ?? "").toString();
+    const conteudo = (r[2] ?? "").toString();
+    const objetivos = (r[3] ?? "").toString();
+    const desenvolvimento = (r[4] ?? "").toString();
+    const recursos = (r[5] ?? "").toString();
+    const bncc = (r[6] ?? "").toString();
+    if (!aula || !titulo) continue;
+    addConteudo(turmaId, { turmaId, aula, titulo, conteudo, objetivos, desenvolvimento, recursos, bncc });
+    count++;
   }
   return count;
-}
-
-/** Import ESM da raiz do pacote para compatibilidade no Vercel */
-async function importXLSX() {
-  const XLSX = await import("xlsx");
-  const mod: any = (XLSX as any).default ?? XLSX;
-  return { read: mod.read, utils: mod.utils };
 }
