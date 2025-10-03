@@ -398,3 +398,56 @@ function importRowsToConteudos(turmaId: string, rows: any[][]): number {
   }
   return count;
 }
+
+/* ------------------------------------------------------------------ */
+/* EXPORT/IMPORT de TODO o store atual (guieduc:*)                    */
+/* ------------------------------------------------------------------ */
+
+/** Exporta tudo que a versão atual usa (guieduc:*) em um JSON string. */
+export function exportAllToJSON(): string {
+  if (typeof window === "undefined") return JSON.stringify({ turmas: [], alunos: {}, chamadas: {}, conteudos: {} });
+
+  const turmas = listTurmas();
+  const alunos: Record<string, Aluno[]> = {};
+  const chamadas: Record<string, Chamada[]> = {};
+  const conteudos: Record<string, Conteudo[]> = {};
+
+  for (const t of turmas) {
+    alunos[t.id] = readJSON<Aluno[]>(`guieduc:alunos:${t.id}`, []);
+    chamadas[t.id] = readJSON<Chamada[]>(`guieduc:chamadas:${t.id}`, []);
+    conteudos[t.id] = readJSON<Conteudo[]>(`guieduc:conteudos:${t.id}`, []);
+  }
+
+  return JSON.stringify({
+    turmas, alunos, chamadas, conteudos,
+    _meta: { host: typeof location !== "undefined" ? location.host : "unknown", exportedAt: new Date().toISOString() }
+  }, null, 2);
+}
+
+/** Importa um JSON no formato exportado por exportAllToJSON() para as chaves atuais (guieduc:*). */
+export function importAllFromJSON(json: string): { turmas: number; alunos: number; chamadas: number; conteudos: number } {
+  const data = JSON.parse(json);
+  const turmas: Turma[] = Array.isArray(data.turmas) ? data.turmas : [];
+  const alunos: Record<string, Aluno[]> = data.alunos && typeof data.alunos === "object" ? data.alunos : {};
+  const chamadas: Record<string, Chamada[]> = data.chamadas && typeof data.chamadas === "object" ? data.chamadas : {};
+  const conteudos: Record<string, Conteudo[]> = data.conteudos && typeof data.conteudos === "object" ? data.conteudos : {};
+
+  writeJSON(K_TURMAS, turmas);
+  let ac = 0, cc = 0, dc = 0;
+
+  const allTids = new Set<string>([
+    ...turmas.map(t => t.id),
+    ...Object.keys(alunos),
+    ...Object.keys(chamadas),
+    ...Object.keys(conteudos),
+  ]);
+
+  for (const tid of allTids) {
+    if (alunos[tid]) { writeJSON(`guieduc:alunos:${tid}`, alunos[tid]); ac++; }
+    if (chamadas[tid]) { writeJSON(`guieduc:chamadas:${tid}`, chamadas[tid]); cc++; }
+    if (conteudos[tid]) { writeJSON(`guieduc:conteudos:${tid}`, conteudos[tid]); dc++; }
+  }
+  // marca migração para evitar reprocesso de legado
+  if (typeof window !== "undefined") window.localStorage.setItem(MIGRATION_MARK, String(Date.now()));
+  return { turmas: turmas.length, alunos: ac, chamadas: cc, conteudos: dc };
+}
