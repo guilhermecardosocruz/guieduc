@@ -197,24 +197,13 @@ export function addConteudo(
   return upsertConteudo(turmaId, p);
 }
 /** updateConteudo compatível com (turmaId, conteudo) e (turmaId, conteudoId, patch) */
-export function updateConteudo(turmaId: ID, conteudo: Conteudo): Conteudo;
-export function updateConteudo(
-  turmaId: ID,
-  conteudoId: ID,
-  patch: Partial<Omit<Conteudo, "id" | "turmaId" | "createdAt" | "updatedAt">> & { aula?: number }
-): Conteudo;
-export function updateConteudo(
-  turmaId: ID,
-  a: any,
-  b?: any
-): Conteudo {
+export function updateConteudo(turmaId: ID, conteudo: any, patch?: any): Conteudo {
   const s = load();
   s.conteudos[turmaId] = s.conteudos[turmaId] ?? [];
   const now = nowISO();
 
-  if (typeof a === "string" && b) {
-    const conteudoId: ID = a;
-    const patch = b as Partial<Omit<Conteudo, "id" | "turmaId" | "createdAt" | "updatedAt">> & { aula?: number };
+  if (typeof conteudo === "string" && patch) {
+    const conteudoId: ID = conteudo;
     const idx = s.conteudos[turmaId].findIndex(x => x.id === conteudoId);
     if (idx >= 0) {
       s.conteudos[turmaId][idx] = { ...s.conteudos[turmaId][idx], ...patch, updatedAt: now };
@@ -223,14 +212,13 @@ export function updateConteudo(
     }
     throw new Error("Conteúdo não encontrado");
   } else {
-    const c = a as Conteudo;
+    const c = conteudo as Conteudo;
     const idx = s.conteudos[turmaId].findIndex(x => x.id === c.id);
     if (idx >= 0) {
       s.conteudos[turmaId][idx] = { ...s.conteudos[turmaId][idx], ...c, updatedAt: now };
       save(s);
       return s.conteudos[turmaId][idx];
     }
-    // se não existir, cria
     const novo: Conteudo = { ...c, id: c.id ?? uid(), createdAt: now, updatedAt: now };
     s.conteudos[turmaId].push(novo);
     save(s);
@@ -305,7 +293,11 @@ function importRowsToConteudos(turmaId: ID, rows: any[][]): number {
   return count;
 }
 
+/** Importação dinâmica ESM para evitar erro de resolução no Vercel/webpack */
 async function importXLSX() {
-  const XLSX = await import("xlsx/dist/xlsx.mjs");
-  return { read: XLSX.read, utils: XLSX.utils };
+  // Importar da raiz do pacote garante resolução em build/edge
+  const XLSX = await import("xlsx");
+  // Alguns bundlers expõem default; garantir acesso compatível:
+  const mod: any = (XLSX as any).default ?? XLSX;
+  return { read: mod.read, utils: mod.utils };
 }
